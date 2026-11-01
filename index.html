@@ -1,222 +1,3653 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ChronoFlow | Modern Time Platform</title>
-    <meta
-      name="description"
-      content="A real modern website built from a live clock prototype, with sleek design and responsive layout."
-    />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="page-shell">
-      <header class="topbar">
-        <div class="brand-wrap">
-          <div class="brand-mark">C</div>
-          <span>ChronoFlow</span>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Damclock.gd</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg-base: #070709;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-hover: rgba(255, 255, 255, 0.06);
+            --text-color: #f8fafc;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.2);
+            --glass-bg: rgba(18, 18, 24, 0.7);
+            --accent-color: #6366f1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #070a12;
+            background-attachment: fixed;
+            color: var(--text-color);
+            user-select: none;
+            overflow-x: hidden;
+            margin: 0;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+            transition: background 0.35s ease;
+        }
+
+        #live-wallpaper-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.75;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(45, 65, 138, 0.3), rgba(9,11,18,0.7));
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .clock-font { font-family: 'Consolas', 'SFMono-Regular', monospace; }
+
+        body {
+            background-image:
+                radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.10), transparent 18%),
+                radial-gradient(circle at 80% 10%, rgba(45, 212, 191, 0.07), transparent 20%),
+                radial-gradient(circle at 50% 100%, rgba(168, 85, 247, 0.05), transparent 22%),
+                radial-gradient(circle at 50% -20%, rgba(23, 24, 37, 0.9), rgba(7, 7, 9, 1) 65%);
+        }
+
+        #app-loader {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: grid;
+            place-items: center;
+            background:
+                radial-gradient(ellipse at 50% 42%, rgba(114, 214, 177, 0.12), transparent 34%),
+                radial-gradient(ellipse at 50% 100%, rgba(88, 112, 179, 0.08), transparent 42%),
+                #070a12;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 420ms ease, visibility 420ms ease;
+        }
+
+        #app-loader::before,
+        #app-loader::after {
+            position: absolute;
+            inset: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.035);
+            border-radius: 24px;
+            content: "";
+            pointer-events: none;
+        }
+
+        #app-loader::after {
+            inset: 34px;
+            border-color: rgba(114, 214, 177, 0.035);
+            border-radius: 18px;
+        }
+
+        #app-loader.is-hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .loader-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+            text-align: center;
+        }
+
+        .loader-mark {
+            display: grid;
+            width: 104px;
+            height: 104px;
+            place-items: center;
+            margin-bottom: 26px;
+            border: 1px solid rgba(145, 203, 180, 0.22);
+            border-radius: 31px;
+            background: linear-gradient(145deg, rgba(114, 214, 177, 0.12), rgba(255, 255, 255, 0.025));
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 70px rgba(114, 214, 177, 0.12), 0 24px 70px rgba(0, 0, 0, 0.4);
+            animation: loader-mark-arrive 700ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+        }
+
+        .loader-mark svg {
+            width: 78px;
+            height: 78px;
+            overflow: visible;
+        }
+
+        .loader-mark-ring {
+            fill: none;
+            stroke: rgba(177, 236, 208, 0.25);
+            stroke-width: 1;
+        }
+
+        .loader-mark-face {
+            fill: url(#loader-mark-gradient);
+            stroke: rgba(199, 255, 226, 0.75);
+            stroke-width: 1.6;
+        }
+
+        .loader-mark-hand {
+            fill: none;
+            stroke: #e0ffed;
+            stroke-linecap: round;
+            stroke-width: 2.6;
+        }
+
+        .loader-mark-hand-accent {
+            stroke: #72d6b1;
+            stroke-width: 2;
+        }
+
+        .loader-mark-center {
+            fill: #e0ffed;
+        }
+
+        .loader-mark-spark {
+            fill: #a8f3ce;
+            filter: drop-shadow(0 0 4px rgba(114, 214, 177, 0.9));
+        }
+
+        .loader-wordmark {
+            display: flex;
+            align-items: baseline;
+            gap: 5px;
+            margin: 0;
+            color: #f2f7f5;
+            font-size: clamp(1.12rem, 4vw, 1.35rem);
+            font-weight: 600;
+            letter-spacing: 0.22em;
+            text-indent: 0.22em;
+        }
+
+        .loader-wordmark span {
+            color: #83dcb6;
+            font-size: 0.72em;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+        }
+
+        .loader-title {
+            margin: 12px 0 26px;
+            color: #91a59b;
+            font-size: 0.65rem;
+            font-weight: 400;
+            letter-spacing: 0.16em;
+        }
+
+        .loader-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #b3c2bb;
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+        }
+
+        .loader-spinner {
+            width: 14px;
+            height: 14px;
+            border: 1.5px solid rgba(145, 203, 180, 0.2);
+            border-top-color: #72d6b1;
+            border-right-color: rgba(114, 214, 177, 0.55);
+            border-radius: 50%;
+            animation: loader-spin 900ms cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+        }
+
+        .loader-rule {
+            width: min(220px, 58vw);
+            height: 1px;
+            margin-top: 25px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .loader-rule span {
+            display: block;
+            width: 38%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, #72d6b1, transparent);
+            animation: loader-progress 1.5s ease-in-out infinite;
+        }
+
+        @keyframes loader-progress {
+            from { transform: translateX(-110%); }
+            to { transform: translateX(270%); }
+        }
+
+        @keyframes loader-mark-arrive {
+            from { opacity: 0; transform: translateY(10px) scale(0.94); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes loader-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #app-loader {
+                transition: none;
+            }
+
+            .loader-spinner,
+            .loader-rule span {
+                animation: none;
+            }
+
+            .loader-spinner {
+                border-top-color: rgba(145, 203, 180, 0.65);
+            }
+        }
+
+        .modern-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 30px -25px rgba(0, 0, 0, 0.9);
+        }
+
+        .modern-card:hover {
+            background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+            border-color: rgba(255,255,255,0.12);
+            transform: translateY(-1px);
+            box-shadow: 0 18px 32px -22px rgba(0, 0, 0, 0.9), 0 0 20px 0 rgba(99, 102, 241, 0.10);
+        }
+
+        #clock-display-stage {
+            transition: transform 0.25s ease, filter 0.25s ease;
+            gap: 1rem;
+        }
+
+        #clock-display-stage .modern-card {
+            width: clamp(120px, 11vw, 210px);
+            height: clamp(160px, 20vw, 240px);
+            border-radius: 1.8rem;
+            background: rgba(255,255,255,0.03);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 12px 22px -18px rgba(0,0,0,0.8);
+        }
+
+        #clock-display-stage .modern-card span {
+            font-size: clamp(3rem, 8vw, 7rem);
+            line-height: 1;
+            font-weight: 300;
+            letter-spacing: -0.07em;
+        }
+
+        body.clock-style-neon #clock-display-stage .modern-card {
+            background: rgba(13, 19, 30, 0.7);
+            border-color: rgba(129, 140, 248, 0.4);
+            box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.2), 0 0 25px rgba(99, 102, 241, 0.2);
+        }
+
+        body.clock-style-neon #hours-display,
+        body.clock-style-neon #minutes-display,
+        body.clock-style-neon #seconds-display,
+        body.clock-style-neon #ampm-display {
+            color: #d8e4ff;
+            text-shadow: 0 0 12px rgba(99, 102, 241, 0.7);
+        }
+
+        body.clock-style-minimal #clock-display-stage .modern-card {
+            background: rgba(255,255,255,0.015);
+            border: 1px solid rgba(255,255,255,0.06);
+            box-shadow: none;
+        }
+
+        body.clock-style-minimal #hours-display,
+        body.clock-style-minimal #minutes-display,
+        body.clock-style-minimal #seconds-display {
+            font-weight: 300;
+            letter-spacing: 0.06em;
+        }
+
+        body.clock-style-glass #clock-display-stage .modern-card {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.12);
+        }
+
+        body.clock-style-flip #clock-display-stage .modern-card {
+            background: linear-gradient(180deg, rgba(15, 18, 26, 0.95), rgba(7,10,15,0.95));
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05), 0 25px 35px -25px rgba(0,0,0,0.9);
+        }
+
+        body.clock-style-sunset #clock-display-stage .modern-card {
+            background: linear-gradient(135deg, rgba(251,146,60,0.18), rgba(244,63,94,0.10));
+            border-color: rgba(251,146,60,0.3);
+            box-shadow: 0 0 0 1px rgba(251,146,60,0.12), 0 20px 30px -18px rgba(251,146,60,0.5);
+        }
+
+        body.clock-style-sunset #hours-display,
+        body.clock-style-sunset #minutes-display,
+        body.clock-style-sunset #seconds-display,
+        body.clock-style-sunset #ampm-display {
+            color: #ffe7d7;
+            text-shadow: 0 0 16px rgba(251,146,60,0.7);
+        }
+
+        body.clock-style-aurora #clock-display-stage .modern-card {
+            background: linear-gradient(180deg, rgba(16,185,129,0.12), rgba(59,130,246,0.10));
+            border-color: rgba(45,212,191,0.35);
+            box-shadow: 0 0 0 1px rgba(45,212,191,0.18), 0 20px 30px -18px rgba(16,185,129,0.5);
+        }
+
+        body.clock-style-aurora #hours-display,
+        body.clock-style-aurora #minutes-display,
+        body.clock-style-aurora #seconds-display,
+        body.clock-style-aurora #ampm-display {
+            color: #d9fff7;
+            text-shadow: 0 0 16px rgba(45,212,191,0.7);
+        }
+
+        .glass-btn {
+            background: rgba(17, 17, 22, 0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: all 0.18s ease;
+            border-radius: 9999px;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .glass-btn:hover {
+            border-color: rgba(255,255,255,0.14);
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-1px);
+        }
+
+        .colon-dot {
+            animation: pulseGlow 2.2s ease-in-out infinite;
+            background-color: var(--text-color);
+        }
+
+        .modern-card {
+            animation: none;
+        }
+
+        #date-display {
+            animation: none;
+        }
+
+        .glass-btn {
+            animation: none;
+        }
+
+        #main-header {
+            animation: none;
+        }
+
+        #main-header {
+            padding: 0.8rem 1rem;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 1.4rem;
+            background: rgba(11, 14, 22, 0.72);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 24px 40px -28px rgba(0,0,0,0.9);
+        }
+
+        #main-header .flex.items-center.gap-3 span {
+            letter-spacing: 0.24em;
+            font-size: 0.68rem;
+            opacity: 0.9;
+        }
+
+        #widgets-container .modern-card {
+            background: linear-gradient(180deg, rgba(17,20,28,0.86), rgba(15,18,24,0.7));
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 18px 30px -26px rgba(0,0,0,0.8);
+        }
+
+        main {
+            position: relative;
+            z-index: 2;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.85; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(0.96); }
+        }
+
+        @keyframes floatCard {
+            0% { transform: translateY(0px) scale(1); box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 10px 22px -20px rgba(0,0,0,0.85); }
+            50% { transform: translateY(-2px) scale(1.005); box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 32px -22px rgba(0,0,0,0.9); }
+            100% { transform: translateY(0px) scale(1); box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 12px 26px -20px rgba(0,0,0,0.85); }
+        }
+
+        @keyframes dateGlow {
+            0%, 100% { box-shadow: 0 0 0 rgba(255,255,255,0.0); opacity: 0.72; }
+            50% { box-shadow: 0 0 18px rgba(99, 102, 241, 0.18); opacity: 1; }
+        }
+
+        @keyframes buttonBreathe {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-1px); }
+        }
+
+        @keyframes headerFade {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #clock-display-stage .modern-card:nth-child(1) { animation-delay: 0.1s; }
+        #clock-display-stage .modern-card:nth-child(3) { animation-delay: 0.3s; }
+        #clock-display-stage .modern-card:nth-child(5) { animation-delay: 0.5s; }
+
+        #widgets-container .modern-card:nth-child(2) { animation-delay: 0.2s; }
+        #widgets-container .modern-card:nth-child(3) { animation-delay: 0.4s; }
+        #widgets-container .modern-card:nth-child(4) { animation-delay: 0.6s; }
+
+        .todo-scroll::-webkit-scrollbar, .modal-scroll::-webkit-scrollbar { width: 4px; }
+        .todo-scroll::-webkit-scrollbar-thumb, .modal-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 9999px;
+        }
+
+        .zen-hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        #study-mode-panel {
+            display: none;
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto 2rem;
+        }
+
+        body.study-mode-active #study-mode-panel {
+            display: block;
+        }
+
+        body.study-mode-active #widgets-container {
+            display: none;
+        }
+
+        .study-mode-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.8);
+        }
+
+        .timer-btn-active {
+            background: rgba(255, 255, 255, 0.9) !important;
+            color: #000 !important;
+            font-weight: 600;
+        }
+
+        .mini-control {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 0.8rem;
+            padding: 0.65rem 0.8rem;
+            color: rgba(255,255,255,0.9);
+            font-size: 0.7rem;
+            outline: none;
+        }
+
+        .mini-control:focus {
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .settings-panel {
+            display: none;
+        }
+
+        .settings-panel.active {
+            display: block;
+        }
+
+        .settings-tab-btn {
+            flex: 1;
+            border-radius: 0.9rem;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            color: rgba(255,255,255,0.75);
+            padding: 0.6rem 0.7rem;
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+
+        .settings-tab-btn.active {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.18);
+            color: #fff;
+        }
+
+        :root {
+            --text-color: #edf5f2;
+            --accent-color: #72d6b1;
+            --border-color: rgba(200, 225, 217, 0.11);
+        }
+
+        html {
+            background: #090e10;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            min-height: 100svh;
+            padding: 24px clamp(16px, 4vw, 48px);
+            color: var(--text-color);
+            font-family: 'DM Sans', sans-serif;
+            background-color: #090e10;
+            background-image:
+                linear-gradient(rgba(143, 184, 169, 0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(143, 184, 169, 0.035) 1px, transparent 1px),
+                radial-gradient(ellipse at 50% 0%, rgba(39, 81, 72, 0.2), transparent 55%);
+            background-size: 44px 44px, 44px 44px, auto;
+            background-attachment: fixed;
+        }
+
+        body::before {
+            background: linear-gradient(180deg, rgba(9, 14, 16, 0.08), rgba(9, 14, 16, 0.52));
+        }
+
+        .clock-font {
+            font-family: 'IBM Plex Mono', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #live-wallpaper-canvas {
+            opacity: 0.3;
+            right: 0;
+            width: 100%;
+        }
+
+        #main-header {
+            width: min(100%, 1080px);
+            min-height: 58px;
+            margin-bottom: clamp(28px, 5vh, 56px);
+            padding: 10px 14px;
+            border: 1px solid rgba(200, 225, 217, 0.12);
+            border-radius: 14px;
+            background: rgba(12, 19, 20, 0.82);
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+        }
+
+        #main-header .flex.items-center.gap-3 span {
+            color: #edf5f2;
+            font-size: 0.72rem;
+            letter-spacing: 0.16em;
+        }
+
+        #main-header .bg-indigo-500 {
+            background-color: #72d6b1;
+            box-shadow: 0 0 14px rgba(114, 214, 177, 0.55);
+        }
+
+        #main-header .text-indigo-400,
+        #widgets-container .text-indigo-400,
+        #widgets-container .text-cyan-400 {
+            color: #72d6b1;
+        }
+
+        .glass-btn {
+            padding: 0.56rem 0.78rem;
+            border-radius: 9px;
+            border-color: rgba(200, 225, 217, 0.12);
+            background: rgba(255, 255, 255, 0.035);
+            color: #dbe7e2;
+        }
+
+        .glass-btn:hover {
+            border-color: rgba(114, 214, 177, 0.35);
+            background: rgba(114, 214, 177, 0.09);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        main {
+            width: min(100%, 1080px);
+            padding-bottom: 28px;
+        }
+
+        #date-display {
+            margin-bottom: 22px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: #a6b8b1;
+            font-size: 0.7rem;
+            letter-spacing: 0.18em;
+        }
+
+        #clock-display-stage {
+            gap: clamp(8px, 1.6vw, 20px);
+            margin-bottom: clamp(34px, 6vh, 64px);
+        }
+
+        #clock-display-stage .modern-card {
+            width: clamp(76px, 13vw, 150px);
+            height: clamp(104px, 17vw, 180px);
+            overflow: hidden;
+            border-radius: 16px;
+            border-color: rgba(200, 225, 217, 0.13);
+            background: linear-gradient(145deg, rgba(28, 42, 40, 0.82), rgba(13, 20, 20, 0.78));
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 40px rgba(0, 0, 0, 0.22);
+        }
+
+        #clock-display-stage .modern-card span {
+            font-size: clamp(2.7rem, 8vw, 6rem);
+            font-weight: 400;
+            letter-spacing: -0.06em;
+            color: #f1f8f4;
+        }
+
+        #pomo-display,
+        #study-timer-display {
+            display: inline-flex;
+            align-items: center;
+            transform-origin: center;
+        }
+
+        .focus-timer-digit {
+            display: inline-block;
+            transform-origin: 50% 45%;
+            backface-visibility: hidden;
+        }
+
+        .focus-timer-digit-flip {
+            animation: focus-timer-digit-flip 420ms cubic-bezier(0.22, 0.75, 0.25, 1) both;
+        }
+
+        @keyframes focus-timer-digit-flip {
+            0% { transform: perspective(500px) rotateX(-65deg) translateY(-0.12em); opacity: 0; }
+            65% { transform: perspective(500px) rotateX(8deg) translateY(0.01em); opacity: 1; }
+            100% { transform: perspective(500px) rotateX(0) translateY(0); opacity: 1; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .focus-timer-digit-flip {
+                animation: none;
+            }
+        }
+
+        #clock-poem {
+            width: min(100%, 540px);
+            margin: -1.8rem 0 2.5rem;
+            padding: 18px 28px 20px;
+            border: 1px solid rgba(114, 214, 177, 0.16);
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(114, 214, 177, 0.055), rgba(255, 255, 255, 0.018));
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 14px 36px rgba(0, 0, 0, 0.12);
+            text-align: center;
+        }
+
+        #clock-poem figcaption {
+            margin-bottom: 8px;
+            color: #91cbb4;
+            font-size: 0.62rem;
+            font-weight: 600;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+        }
+
+        #clock-poem blockquote {
+            margin: 0;
+            color: #c2d0ca;
+            font-size: clamp(0.8rem, 1.4vw, 0.92rem);
+            line-height: 1.75;
+            letter-spacing: 0.02em;
+        }
+
+        #clock-poem .poem-author {
+            margin: 10px 0 0;
+            color: #91cbb4;
+            font-size: 0.68rem;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+        }
+
+        @media (max-width: 640px) {
+            #clock-poem {
+                padding: 15px 16px 17px;
+            }
+        }
+
+        #ampm-display {
+            color: #91cbb4;
+        }
+
+        #clock-display-stage #ampm-display {
+            font-size: 0.62rem;
+            line-height: 1;
+            font-weight: 600;
+            letter-spacing: 0.14em;
+        }
+
+        .colon-dot {
+            background-color: #72d6b1;
+            box-shadow: 0 0 10px rgba(114, 214, 177, 0.32);
+        }
+
+        #widgets-container {
+            gap: 14px;
+        }
+
+        #widgets-container > .modern-card {
+            min-width: 0;
+            height: 196px;
+            padding: 20px;
+            border-radius: 14px;
+            border-color: rgba(200, 225, 217, 0.1);
+            background: linear-gradient(150deg, rgba(24, 35, 34, 0.88), rgba(14, 20, 20, 0.84));
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.15);
+        }
+
+        #widgets-container > .modern-card:hover {
+            border-color: rgba(114, 214, 177, 0.28);
+            box-shadow: 0 18px 38px rgba(0, 0, 0, 0.24);
+            transform: translateY(-2px);
+        }
+
+        #widgets-container > .modern-card > div:first-child {
+            color: #b4c5be;
+            letter-spacing: 0.12em;
+        }
+
+        #widgets-container .bg-white\/5 {
+            background-color: rgba(221, 240, 231, 0.045);
+        }
+
+        #widgets-container input:not([type="checkbox"]) {
+            color: #edf5f2;
+        }
+
+        #widgets-container input:focus-visible,
+        button:focus-visible,
+        select:focus-visible {
+            outline: 2px solid #72d6b1;
+            outline-offset: 3px;
+        }
+
+        #settings-modal > .modern-card,
+        #soundscape-modal > .modern-card {
+            border-radius: 16px;
+            border-color: rgba(200, 225, 217, 0.16);
+            background: rgba(15, 23, 22, 0.97);
+        }
+
+        @keyframes rise-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #clock-display-stage .modern-card,
+        #widgets-container > .modern-card {
+            animation: rise-in 500ms both;
+        }
+
+        #widgets-container > .modern-card:nth-child(2) { animation-delay: 70ms; }
+        #widgets-container > .modern-card:nth-child(3) { animation-delay: 140ms; }
+        #widgets-container > .modern-card:nth-child(4) { animation-delay: 210ms; }
+        #widgets-container > .modern-card:nth-child(5) { animation-delay: 280ms; }
+        #widgets-container > .modern-card:nth-child(6) { animation-delay: 350ms; }
+
+        #page-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            width: min(100%, 1080px);
+            margin: -20px auto 26px;
+            padding: 0 0 12px;
+            border-bottom: 1px solid rgba(200, 225, 217, 0.1);
+        }
+
+        .page-tab {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 38px;
+            padding: 8px 12px;
+            border: 1px solid transparent;
+            border-radius: 9px;
+            color: #a6b8b1;
+            font-size: 0.76rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+        }
+
+        .page-tab svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        .page-tab:hover {
+            color: #edf5f2;
+            background: rgba(255, 255, 255, 0.045);
+        }
+
+        .page-tab.active {
+            color: #d9f5e9;
+            border-color: rgba(114, 214, 177, 0.2);
+            background: rgba(114, 214, 177, 0.09);
+        }
+
+        body[data-page="clock"] #widgets-container {
+            display: none;
+        }
+
+        body[data-page]:not([data-page="clock"]) #clock-format-controls,
+        body[data-page]:not([data-page="clock"]) #date-display,
+        body[data-page]:not([data-page="clock"]) #clock-display-stage,
+        body[data-page]:not([data-page="clock"]) #clock-poem {
+            display: none;
+        }
+
+        body[data-page="focus"] #widgets-container > .modern-card:not([data-page-feature="focus"]),
+        body[data-page="timer"] #widgets-container > .modern-card:not([data-page-feature="timer"]),
+        body[data-page="weather"] #widgets-container > .modern-card:not([data-page-feature="weather"]),
+        body[data-page="world"] #widgets-container > .modern-card:not([data-page-feature="world"]),
+        body[data-page="tasks"] #widgets-container > .modern-card:not([data-page-feature="tasks"]) {
+            display: none;
+        }
+
+        body[data-page="focus"] #widgets-container,
+        body[data-page="timer"] #widgets-container,
+        body[data-page="weather"] #widgets-container,
+        body[data-page="world"] #widgets-container,
+        body[data-page="tasks"] #widgets-container {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            width: min(100%, 720px);
+            margin: 0 auto;
+        }
+
+        body[data-page="focus"] #widgets-container > [data-page-feature],
+        body[data-page="timer"] #widgets-container > [data-page-feature],
+        body[data-page="weather"] #widgets-container > [data-page-feature],
+        body[data-page="world"] #widgets-container > [data-page-feature] {
+            min-height: 248px;
+            height: auto;
+            padding: clamp(22px, 4vw, 34px);
+        }
+
+        body[data-page="tasks"] #widgets-container > [data-page-feature] {
+            min-height: 220px;
+            height: auto;
+            max-height: min(65svh, 600px);
+            padding: clamp(22px, 4vw, 34px);
+        }
+
+        body[data-page="timer"] #widgets-container > [data-page-feature] {
+            min-height: 300px;
+        }
+
+        .timer-duration-input {
+            width: 100%;
+            min-width: 0;
+            padding: 12px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.18);
+            color: #f8fafc;
+            font: inherit;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1.1rem;
+            text-align: center;
+            outline: none;
+        }
+
+        .timer-duration-input:focus {
+            border-color: rgba(114, 214, 177, 0.55);
+        }
+
+        .timer-duration-input:disabled {
+            opacity: 0.55;
+        }
+
+        body[data-page="tasks"] #todo-list {
+            min-height: 56px;
+            max-height: 360px;
+        }
+
+        @keyframes page-enter {
+            from { opacity: 0; transform: translateY(12px) scale(0.99); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        main.page-enter {
+            animation: page-enter 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+        }
+
+        .page-tab.active {
+            box-shadow: inset 0 -2px rgba(114, 214, 177, 0.75);
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 14px 12px 24px;
+            }
+
+            #main-header {
+                min-height: 52px;
+                margin-bottom: 24px;
+                padding: 8px 10px;
+                border-radius: 12px;
+            }
+
+            #main-header > .flex:last-child {
+                gap: 5px;
+            }
+
+            #main-header .glass-btn {
+                padding: 0.5rem 0.42rem;
+            }
+
+            #clock-display-stage {
+                gap: 6px;
+                margin-bottom: 32px;
+            }
+
+            #clock-display-stage .modern-card {
+                width: clamp(60px, 19vw, 96px);
+                height: clamp(88px, 27vw, 126px);
+                border-radius: 12px;
+            }
+
+            #clock-display-stage .modern-card span {
+                font-size: clamp(2.2rem, 11vw, 3.6rem);
+            }
+
+            #clock-display-stage #seconds-group {
+                gap: 6px;
+            }
+
+            #widgets-container {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            #widgets-container > .modern-card {
+                height: 176px;
+                padding: 17px;
+            }
+
+            #page-nav {
+                justify-content: flex-start;
+                gap: 2px;
+                margin: -12px auto 22px;
+                padding: 0 0 8px;
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+
+            #page-nav::-webkit-scrollbar {
+                display: none;
+            }
+
+            .page-tab {
+                flex: 0 0 auto;
+                gap: 6px;
+                min-height: 36px;
+                padding: 7px 10px;
+                font-size: 0.7rem;
+            }
+
+            body[data-page="focus"] #widgets-container > [data-page-feature],
+            body[data-page="timer"] #widgets-container > [data-page-feature],
+            body[data-page="weather"] #widgets-container > [data-page-feature],
+            body[data-page="world"] #widgets-container > [data-page-feature] {
+                min-height: 220px;
+            }
+
+            body[data-page="tasks"] #widgets-container > [data-page-feature] {
+                min-height: 210px;
+                max-height: min(65svh, 520px);
+            }
+
+            body[data-page="tasks"] #todo-list {
+                max-height: 300px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        #clock-display-stage .watch-face-brand,
+        #clock-display-stage .watch-face-footer,
+        #clock-display-stage .watch-case-buttons,
+        #clock-display-stage .watch-backlight,
+        #clock-display-stage .world-watch-subdial,
+        #clock-display-stage .world-watch-map,
+        #clock-display-stage .world-watch-caption {
+            display: none;
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-case-buttons {
+            display: flex;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-case-buttons {
+            display: flex;
+        }
+
+        #clock-display-stage .world-watch-band,
+        #clock-display-stage .world-watch-top-label,
+        #clock-display-stage .world-watch-day {
+            display: none;
+        }
+
+        body.clock-style-f91w #clock-display-stage {
+            position: relative;
+            isolation: isolate;
+            width: min(390px, 88vw);
+            min-height: 246px;
+            gap: 0.3rem;
+            margin-top: 0.5rem;
+            padding: 64px 24px 60px;
+            border: 8px solid #252a2d;
+            border-radius: 42px;
+            background: linear-gradient(160deg, #62686a, #292e31 28%, #111416 82%);
+            box-shadow: inset 0 2px 2px rgba(255,255,255,0.28), 0 22px 45px rgba(0,0,0,0.48);
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-case-buttons {
+            position: absolute;
+            z-index: 3;
+            top: 43%;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            transform: translateY(-50%);
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-case-buttons-left {
+            left: -15px;
+            align-items: flex-start;
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-case-buttons-right {
+            right: -15px;
+            align-items: flex-end;
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-case-button {
+            position: relative;
+            display: grid;
+            width: 23px;
+            height: 15px;
+            place-items: center;
+            padding: 0;
+            border: 1px solid #747b7d;
+            border-radius: 5px;
+            background: linear-gradient(180deg, #858b8c 0%, #414749 38%, #202527 100%);
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.42), 0 2px 3px rgba(0,0,0,0.6);
+            color: #e3e7e5;
+            font: 700 6px/1 Arial, sans-serif;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: transform 90ms ease, filter 90ms ease;
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-case-button:hover {
+            filter: brightness(1.2);
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-case-button:active {
+            transform: translateY(2px);
+            filter: brightness(0.82);
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-case-button:focus-visible {
+            outline: 2px solid #a8e7c7;
+            outline-offset: 3px;
+        }
+
+        body.clock-style-f91w #clock-display-stage::before {
+            position: absolute;
+            z-index: 0;
+            inset: 56px 25px 52px;
+            border: 3px solid #101515;
+            border-radius: 12px;
+            background: linear-gradient(145deg, #c5d0ae, #9daa87);
+            box-shadow: inset 0 2px 8px rgba(24,34,25,0.42), 0 1px 0 rgba(255,255,255,0.16);
+            content: "";
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-backlight {
+            position: absolute;
+            z-index: 1;
+            inset: 59px 28px 55px;
+            border-radius: 8px;
+            background: rgba(195, 255, 190, 0.62);
+            box-shadow: 0 0 28px 12px rgba(155, 255, 174, 0.24);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 120ms ease;
+        }
+
+        body.clock-style-f91w.f91w-light-on #clock-display-stage .watch-backlight {
+            opacity: 1;
+        }
+
+        body.clock-style-f91w #clock-display-stage .modern-card,
+        body.clock-style-f91w #clock-display-stage #seconds-group {
+            position: relative;
+            z-index: 2;
+            width: auto;
+            height: auto;
+            overflow: visible;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
+        }
+
+        body.clock-style-f91w #clock-display-stage .modern-card span {
+            color: #172019;
+            font-size: clamp(2.2rem, 7vw, 3.55rem);
+            font-weight: 600;
+            letter-spacing: -0.08em;
+            text-shadow: none;
+        }
+
+        body.clock-style-f91w #clock-display-stage #seconds-display {
+            font-size: clamp(1.45rem, 4vw, 2rem);
+            letter-spacing: -0.06em;
+        }
+
+        body.clock-style-f91w #clock-display-stage #ampm-display {
+            top: -0.7rem;
+            right: -0.5rem;
+            bottom: auto;
+            color: #263126;
+            font-size: 0.48rem;
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-face-brand,
+        body.clock-style-f91w #clock-display-stage .watch-face-footer {
+            position: absolute;
+            z-index: 2;
+            left: 28px;
+            display: block;
+            color: #f0f1ed;
+            font-family: Arial, sans-serif;
+            font-size: 0.64rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-face-brand {
+            top: 20px;
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-face-brand strong {
+            margin-left: 0.55rem;
+            font-style: italic;
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-face-brand span {
+            display: block;
+            margin-top: 2px;
+            font-size: 0.4rem;
+            letter-spacing: 0.08em;
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-face-footer {
+            bottom: 20px;
+            left: 50%;
+            font-size: 0.46rem;
+            letter-spacing: 0.13em;
+            transform: translateX(-50%);
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-face-separator {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            width: auto;
+            padding: 0;
+            color: #172019;
+            font-size: 2rem;
+            line-height: 1;
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-face-separator::before {
+            content: ":";
+        }
+
+        body.clock-style-f91w #clock-display-stage .watch-face-separator .colon-dot {
+            display: none;
+        }
+
+        body.clock-style-f91w #clock-display-stage #seconds-group {
+            gap: 0.2rem;
+        }
+
+        body.clock-style-f91w #clock-display-stage #seconds-group .modern-card {
+            padding-left: 0.15rem;
+        }
+
+        body.clock-style-f91w #clock-display-stage[data-watch-mode="stopwatch"] #ampm-display,
+        body.clock-style-f91w #clock-display-stage[data-watch-mode="alarm"] #ampm-display {
+            display: none;
+        }
+
+        body.clock-style-f91w #clock-display-stage[data-watch-mode="stopwatch"] #hours-display,
+        body.clock-style-f91w #clock-display-stage[data-watch-mode="stopwatch"] #minutes-display {
+            font-size: clamp(2rem, 6vw, 3rem);
+        }
+
+        body.clock-style-f91w #clock-display-stage[data-watch-mode="stopwatch"] #seconds-display {
+            font-size: clamp(1.6rem, 4.5vw, 2.2rem);
+        }
+
+        body.clock-style-f91w #clock-display-stage[data-watch-mode="alarm"] #seconds-group {
+            display: none;
+        }
+
+        @media (max-width: 640px) {
+            body.clock-style-f91w #clock-display-stage {
+                min-height: 218px;
+                padding: 59px 17px 54px;
+            }
+
+            body.clock-style-f91w #clock-display-stage::before {
+                inset: 52px 18px 48px;
+            }
+
+            body.clock-style-f91w #clock-display-stage .watch-face-brand,
+            body.clock-style-f91w #clock-display-stage .watch-face-footer {
+                left: 22px;
+            }
+
+            body.clock-style-f91w #clock-display-stage .watch-face-footer {
+                left: 50%;
+            }
+
+            body.clock-style-f91w #clock-display-stage .watch-backlight {
+                inset: 55px 21px 51px;
+            }
+        }
+
+        body.clock-style-worldtime #clock-display-stage {
+            position: relative;
+            isolation: isolate;
+            display: block;
+            width: min(390px, 88vw);
+            height: 276px;
+            min-height: 276px;
+            margin-top: 0.5rem;
+            padding: 0;
+            border: 10px solid #aeb8bb;
+            border-radius: 48px;
+            background: linear-gradient(145deg, #f0f3f2 0%, #697579 12%, #20272b 23%, #111619 82%, #889194 100%);
+            box-shadow: inset 0 2px 3px rgba(255,255,255,0.65), inset 0 -3px 4px rgba(0,0,0,0.75), 0 25px 48px rgba(0,0,0,0.52);
+        }
+
+        body.clock-style-worldtime #clock-display-stage::before {
+            position: absolute;
+            z-index: 0;
+            inset: 42px 13px 36px;
+            border: 3px solid #050809;
+            border-radius: 15px;
+            background: linear-gradient(145deg, #d5e0c3, #a5b498 70%, #8e9c87);
+            box-shadow: inset 0 2px 8px rgba(23,35,27,0.52), 0 1px 0 rgba(255,255,255,0.2);
+            content: "";
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-case-buttons {
+            position: absolute;
+            z-index: 4;
+            top: 50%;
+            display: flex;
+            flex-direction: column;
+            gap: 34px;
+            transform: translateY(-50%);
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-case-buttons-left {
+            left: -19px;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-case-buttons-right {
+            right: -19px;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-case-button {
+            display: grid;
+            width: 18px;
+            height: 25px;
+            place-items: center;
+            padding: 0;
+            border: 1px solid #d5ddde;
+            border-radius: 6px;
+            background: linear-gradient(90deg, #525c60, #e0e5e4 38%, #777f82 68%, #323a3e);
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.75), 0 2px 4px rgba(0,0,0,0.8);
+            color: #141a1c;
+            font: 800 7px/1 Arial, sans-serif;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-case-button:hover {
+            filter: brightness(1.14);
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-case-button:active {
+            transform: translateY(2px);
+            filter: brightness(0.82);
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-case-button:focus-visible {
+            outline: 2px solid #d1ffb6;
+            outline-offset: 3px;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-backlight {
+            position: absolute;
+            z-index: 1;
+            inset: 45px 17px 39px;
+            border-radius: 10px;
+            background: rgba(207, 255, 195, 0.58);
+            box-shadow: 0 0 35px 15px rgba(178,255,160,0.32);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 120ms ease;
+        }
+
+        body.clock-style-worldtime.worldtime-light-on #clock-display-stage .watch-backlight {
+            opacity: 1;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-brand,
+        body.clock-style-worldtime #clock-display-stage .watch-face-footer,
+        body.clock-style-worldtime #clock-display-stage .world-watch-subdial,
+        body.clock-style-worldtime #clock-display-stage .world-watch-map,
+        body.clock-style-worldtime #clock-display-stage .world-watch-caption {
+            position: absolute;
+            z-index: 2;
+            display: block;
+            font-family: Arial, sans-serif;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-subdial,
+        body.clock-style-worldtime #clock-display-stage .world-watch-map,
+        body.clock-style-worldtime #clock-display-stage .world-watch-caption {
+            display: block;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-band,
+        body.clock-style-worldtime #clock-display-stage .world-watch-top-label,
+        body.clock-style-worldtime #clock-display-stage .world-watch-day {
+            display: block;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-brand {
+            top: 14px;
+            left: 50%;
+            color: #e8eded;
+            font-size: 0.54rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            transform: translateX(-50%);
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-brand strong {
+            margin-left: 0.45rem;
+            font-size: 0.62rem;
+            font-style: normal;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-brand span {
+            position: absolute;
+            top: 2px;
+            left: calc(100% + 28px);
+            white-space: nowrap;
+            font-size: 0.4rem;
+            letter-spacing: 0.06em;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-subdial {
+            top: 56px;
+            left: 28px;
+            width: 64px;
+            height: 64px;
+            overflow: hidden;
+            border: 3px solid #20292a;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle, transparent 53%, rgba(19,35,33,0.75) 55%, transparent 58%),
+                repeating-conic-gradient(from 0deg, #20312d 0deg 1.5deg, transparent 1.5deg 30deg),
+                radial-gradient(circle, #c0d4bd, #809487);
+            box-shadow: inset 0 0 0 2px rgba(255,255,255,0.38), 0 1px 4px rgba(0,0,0,0.6);
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-subdial::before {
+            position: absolute;
+            inset: 16px;
+            border: 1px solid rgba(30,48,42,0.65);
+            border-radius: 50%;
+            content: "";
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-hand {
+            position: absolute;
+            top: 9px;
+            left: 50%;
+            width: 2px;
+            height: 24px;
+            border-radius: 2px;
+            background: #1a2924;
+            transform: translateX(-50%) rotate(var(--world-hand-angle, 0deg));
+            transform-origin: 50% 100%;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-hand::after {
+            position: absolute;
+            top: -3px;
+            left: -2px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #1a2924;
+            content: "";
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-minute-hand {
+            top: 5px;
+            height: 31px;
+            width: 1px;
+            background: #394b3e;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-minute-hand::after {
+            display: none;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-hand-pin {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 5px;
+            height: 5px;
+            border: 1px solid #d5dfc8;
+            border-radius: 50%;
+            background: #2b3c31;
+            transform: translate(-50%, -50%);
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-map {
+            top: 59px;
+            right: 24px;
+            width: 102px;
+            height: 40px;
+            color: #344840;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-map svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-map path {
+            fill: currentColor;
+            opacity: 0.74;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-map .world-map-grid {
+            fill: none;
+            stroke: rgba(34,58,47,0.42);
+            stroke-width: 0.65;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-caption {
+            top: 101px;
+            right: 23px;
+            color: #24352e;
+            font-size: 0.43rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-align: right;
+            text-transform: uppercase;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .modern-card,
+        body.clock-style-worldtime #clock-display-stage #seconds-group {
+            position: absolute;
+            z-index: 2;
+            top: auto;
+            bottom: 55px;
+            width: auto;
+            height: auto;
+            overflow: visible;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-hours-card {
+            left: 33px;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-minutes-card {
+            left: 117px;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .modern-card span {
+            color: #18251e;
+            font-size: clamp(2.55rem, 8vw, 3.5rem);
+            font-weight: 700;
+            letter-spacing: -0.08em;
+            text-shadow: none;
+        }
+
+        body.clock-style-worldtime #clock-display-stage #ampm-display {
+            top: 0.2rem;
+            right: auto;
+            bottom: auto;
+            left: -0.7rem;
+            color: #2b3c33;
+            font-size: 0.45rem;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-separator {
+            position: absolute;
+            z-index: 2;
+            bottom: 66px;
+            left: 98px;
+            display: block;
+            width: auto;
+            padding: 0;
+            color: #18251e;
+            font-size: 1.8rem;
+            line-height: 1;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-separator::before {
+            content: ":";
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-separator .colon-dot {
+            display: none;
+        }
+
+        body.clock-style-worldtime #clock-display-stage #seconds-group {
+            right: 26px;
+            bottom: 65px;
+            display: flex;
+            gap: 0;
+        }
+
+        body.clock-style-worldtime #clock-display-stage #seconds-group .watch-face-separator {
+            display: none;
+        }
+
+        body.clock-style-worldtime #clock-display-stage #seconds-display {
+            color: #18251e;
+            font-size: 1.55rem;
+            font-weight: 700;
+            letter-spacing: -0.06em;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-footer {
+            bottom: 13px;
+            left: 50%;
+            color: #dce1df;
+            font-size: 0.44rem;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            transform: translateX(-50%);
+        }
+
+        body.clock-style-worldtime #clock-display-stage[data-watch-mode="date"] .world-watch-subdial,
+        body.clock-style-worldtime #clock-display-stage[data-watch-mode="stopwatch"] .world-watch-subdial,
+        body.clock-style-worldtime #clock-display-stage[data-watch-mode="alarm"] .world-watch-subdial {
+            opacity: 0.3;
+        }
+
+        body.clock-style-worldtime #clock-display-stage[data-watch-mode="date"] .world-watch-caption,
+        body.clock-style-worldtime #clock-display-stage[data-watch-mode="stopwatch"] .world-watch-caption,
+        body.clock-style-worldtime #clock-display-stage[data-watch-mode="alarm"] .world-watch-caption {
+            opacity: 0.45;
+        }
+
+        @media (max-width: 640px) {
+            body.clock-style-worldtime #clock-display-stage {
+                height: 250px;
+                min-height: 250px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage::before {
+                inset: 40px 10px 33px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .watch-face-brand {
+                top: 12px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .watch-face-brand span {
+                left: calc(100% + 14px);
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-subdial {
+                top: 52px;
+                left: 22px;
+                width: 58px;
+                height: 58px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-hand {
+                top: 7px;
+                height: 22px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-map {
+                top: 55px;
+                right: 19px;
+                width: 88px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-caption {
+                top: 95px;
+                right: 18px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .modern-card,
+            body.clock-style-worldtime #clock-display-stage #seconds-group {
+                bottom: 51px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .watch-hours-card {
+                left: 28px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .watch-minutes-card {
+                left: 100px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .watch-face-separator {
+                bottom: 60px;
+                left: 84px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage #seconds-group {
+                right: 21px;
+                bottom: 60px;
+            }
+        }
+
+        body.clock-style-worldtime #clock-display-stage {
+            width: min(390px, 88vw);
+            height: 320px;
+            min-height: 320px;
+            overflow: visible;
+            margin-bottom: 66px;
+            border: 9px solid #b9c1c3;
+            border-radius: 48px;
+            background:
+                linear-gradient(110deg, transparent 0 7%, rgba(255,255,255,0.28) 9%, transparent 13% 84%, rgba(255,255,255,0.2) 88%, transparent 92%),
+                linear-gradient(145deg, #eef2f1 0%, #838d90 7%, #30393c 17%, #101619 30%, #1c2326 78%, #8f999c 94%, #dce1e0 100%);
+            box-shadow:
+                inset 0 2px 3px rgba(255,255,255,0.8),
+                inset 0 -4px 7px rgba(0,0,0,0.82),
+                0 25px 48px rgba(0,0,0,0.58);
+        }
+
+        body.clock-style-worldtime #date-display {
+            display: none;
+        }
+
+        body.clock-style-worldtime #clock-display-stage::before {
+            z-index: 1;
+            inset: 49px 13px 38px;
+            border: 4px solid #080b0c;
+            border-radius: 16px;
+            background:
+                linear-gradient(155deg, rgba(247,255,229,0.22), transparent 30%),
+                linear-gradient(145deg, #c8d6b8 0%, #aebd9f 56%, #97a68d 100%);
+            box-shadow:
+                inset 0 2px 10px rgba(29,42,30,0.5),
+                inset 0 0 0 1px rgba(255,255,255,0.48),
+                0 1px 0 rgba(255,255,255,0.22);
+        }
+
+        body.clock-style-worldtime #clock-display-stage::after {
+            position: absolute;
+            z-index: 2;
+            inset: 5px;
+            border-radius: 36px;
+            background:
+                radial-gradient(circle at 13px 13px, #687276 0 2px, #c4cbcc 2.5px 4px, #41494c 4.5px, transparent 5.5px),
+                radial-gradient(circle at calc(100% - 13px) 13px, #687276 0 2px, #c4cbcc 2.5px 4px, #41494c 4.5px, transparent 5.5px),
+                radial-gradient(circle at 13px calc(100% - 13px), #687276 0 2px, #c4cbcc 2.5px 4px, #41494c 4.5px, transparent 5.5px),
+                radial-gradient(circle at calc(100% - 13px) calc(100% - 13px), #687276 0 2px, #c4cbcc 2.5px 4px, #41494c 4.5px, transparent 5.5px);
+            content: "";
+            pointer-events: none;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-band {
+            position: absolute;
+            z-index: 0;
+            left: 50%;
+            width: 138px;
+            height: 28px;
+            border: 2px solid #747d80;
+            background:
+                linear-gradient(90deg, transparent 0 13%, rgba(24,30,32,0.5) 14% 16%, transparent 17% 83%, rgba(24,30,32,0.5) 84% 86%, transparent 87%),
+                repeating-linear-gradient(180deg, #c3cbcc 0 8px, #717a7d 9px, #d7ddde 11px, #828b8e 14px);
+            box-shadow: inset 0 0 0 2px rgba(255,255,255,0.3), 0 5px 12px rgba(0,0,0,0.4);
+            transform: translateX(-50%);
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-band-top {
+            top: -23px;
+            border-radius: 9px 9px 3px 3px;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-band-bottom {
+            bottom: -23px;
+            border-radius: 3px 3px 9px 9px;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-top-label {
+            position: absolute;
+            z-index: 2;
+            display: block;
+            top: 16px;
+            left: 50%;
+            color: #e7ebeb;
+            font: 800 0.54rem/1 Arial, sans-serif;
+            letter-spacing: 0.19em;
+            text-shadow: 0 1px 1px #121718;
+            transform: translateX(-50%);
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-brand {
+            top: 56px;
+            left: 23px;
+            transform: none;
+            color: #26352c;
+            font-size: 0.47rem;
+            letter-spacing: 0.04em;
+            text-shadow: 0 1px rgba(255,255,255,0.22);
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-brand strong {
+            margin-left: 0.22rem;
+            font-size: 0.5rem;
+            letter-spacing: 0.04em;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-brand span {
+            display: none;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-subdial {
+            top: 91px;
+            left: 27px;
+            width: 72px;
+            height: 72px;
+            border: 3px solid #536159;
+            background:
+                radial-gradient(circle at 50% 50%, #afc1a8 0 57%, transparent 58%),
+                repeating-conic-gradient(from 0deg, #35463c 0deg 1deg, transparent 1deg 6deg),
+                radial-gradient(circle, #d1dfc4, #66766b);
+            box-shadow: inset 0 0 0 2px rgba(230,239,222,0.75), 0 2px 5px rgba(24,34,27,0.55);
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-subdial::before {
+            inset: 18px;
+            border-color: rgba(51,71,58,0.45);
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-hand {
+            top: 11px;
+            height: 25px;
+            background: #24352b;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-map {
+            top: 88px;
+            right: 27px;
+            width: 118px;
+            height: 48px;
+            color: #465e4d;
+            filter: drop-shadow(0 1px rgba(255,255,255,0.18));
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-caption {
+            top: 133px;
+            right: 27px;
+            min-width: 95px;
+            padding: 3px 5px;
+            border: 1px solid rgba(49,67,54,0.36);
+            background: rgba(221,233,206,0.42);
+            color: #24352b;
+            font-size: 0.45rem;
+            letter-spacing: 0.04em;
+            text-align: center;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .world-watch-day {
+            position: absolute;
+            z-index: 2;
+            top: 163px;
+            right: 27px;
+            display: block;
+            min-width: 95px;
+            padding: 2px 5px;
+            background: rgba(37,54,42,0.76);
+            color: #d7e1ca;
+            font: 700 0.48rem/1.3 "Consolas", monospace;
+            letter-spacing: 0.12em;
+            text-align: center;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .modern-card,
+        body.clock-style-worldtime #clock-display-stage #seconds-group {
+            top: auto;
+            bottom: 58px;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-hours-card {
+            left: 28px;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-minutes-card {
+            left: 120px;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-separator {
+            bottom: 68px;
+            left: 91px;
+            color: #26352b;
+            font-size: 1.7rem;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .modern-card span {
+            color: #18251e;
+            font-size: clamp(2.6rem, 8vw, 3.2rem);
+            font-weight: 700;
+            letter-spacing: -0.1em;
+            line-height: 1;
+            text-shadow: 0 1px rgba(238,247,224,0.25);
+        }
+
+        body.clock-style-worldtime #clock-display-stage #ampm-display {
+            top: 0.25rem;
+            left: -0.6rem;
+            color: #344539;
+            font-size: 0.43rem;
+        }
+
+        body.clock-style-worldtime #clock-display-stage #seconds-group {
+            left: 190px;
+            right: auto;
+            bottom: 68px;
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+
+        body.clock-style-worldtime #clock-display-stage #seconds-group .watch-face-separator {
+            position: relative;
+            bottom: auto;
+            left: auto;
+            display: block;
+            font-size: 1.35rem;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-seconds-card {
+            position: relative;
+            top: auto;
+            right: auto;
+            bottom: auto;
+            left: auto;
+            width: auto;
+            height: auto;
+            margin: 0;
+        }
+
+        body.clock-style-worldtime #clock-display-stage #seconds-display {
+            color: #26352b;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.08em;
+        }
+
+        body.clock-style-worldtime #clock-display-stage .watch-face-footer {
+            bottom: 16px;
+            left: 50%;
+            color: #e1e6e5;
+            font-size: 0.47rem;
+            letter-spacing: 0.2em;
+            text-shadow: 0 1px 1px #121718;
+        }
+
+        body.clock-style-worldtime #clock-display-stage[data-watch-mode="alarm"] #seconds-group {
+            display: none;
+        }
+
+        @media (max-width: 640px) {
+            body.clock-style-worldtime #clock-display-stage {
+                height: 294px;
+                min-height: 294px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage::before {
+                inset: 47px 10px 35px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-band {
+                width: 118px;
+                height: 24px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-band-top {
+                top: -19px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-band-bottom {
+                bottom: -19px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-top-label {
+                top: 13px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .watch-face-brand {
+                top: 52px;
+                left: 19px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-subdial {
+                top: 85px;
+                left: 21px;
+                width: 64px;
+                height: 64px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-hand {
+                top: 9px;
+                height: 22px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-minute-hand {
+                top: 5px;
+                height: 27px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-map {
+                top: 83px;
+                right: 20px;
+                width: 98px;
+                height: 42px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-caption {
+                top: 124px;
+                right: 20px;
+                min-width: 88px;
+                font-size: 0.4rem;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .world-watch-day {
+                top: 151px;
+                right: 20px;
+                min-width: 88px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .watch-hours-card {
+                left: 23px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .watch-minutes-card {
+                left: 103px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .watch-face-separator {
+                bottom: 66px;
+                left: 79px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .modern-card,
+            body.clock-style-worldtime #clock-display-stage #seconds-group {
+                bottom: 56px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage #seconds-group {
+                left: 172px;
+                right: auto;
+                bottom: 66px;
+            }
+
+            body.clock-style-worldtime #clock-display-stage #seconds-display {
+                font-size: 1.32rem;
+            }
+
+            body.clock-style-worldtime #clock-display-stage .watch-face-footer {
+                bottom: 13px;
+            }
+        }
+
+        body.clock-style-worldtime #clock-display-stage #seconds-group .watch-seconds-card {
+            position: relative;
+            top: auto;
+            right: auto;
+            bottom: auto;
+            left: auto;
+            margin: 0;
+        }
+    </style>
+</head>
+<body data-page="clock" class="min-h-screen flex flex-col justify-between relative p-4 sm:p-8">
+    <div id="app-loader" role="status" aria-live="polite">
+        <div class="loader-content">
+            <div class="loader-mark" aria-hidden="true">
+                <svg viewBox="0 0 80 80" fill="none">
+                    <defs>
+                        <linearGradient id="loader-mark-gradient" x1="16" y1="12" x2="64" y2="70" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#baf2d6" />
+                            <stop offset="1" stop-color="#62c99e" />
+                        </linearGradient>
+                    </defs>
+                    <circle class="loader-mark-ring" cx="40" cy="40" r="35" />
+                    <circle class="loader-mark-ring" cx="40" cy="40" r="29" />
+                    <circle class="loader-mark-face" cx="40" cy="40" r="23" />
+                    <path class="loader-mark-hand" d="M40 26v14l10 6" />
+                    <path class="loader-mark-hand loader-mark-hand-accent" d="M40 40 30 49" />
+                    <circle class="loader-mark-center" cx="40" cy="40" r="2.4" />
+                    <circle class="loader-mark-spark" cx="62" cy="18" r="2" />
+                </svg>
+            </div>
+            <p class="loader-wordmark">DAMCLOCK<span>.GD</span></p>
+            <p class="loader-title">A LITTLE MORE TIME, WELL SPENT</p>
+            <div class="loader-status"><span class="loader-spinner" aria-hidden="true"></span><span>Getting things ready</span></div>
+            <div class="loader-rule" aria-hidden="true"><span></span></div>
         </div>
-
-        <nav class="main-nav" aria-label="Main navigation">
-          <a href="#features">Features</a>
-          <a href="#experience">Experience</a>
-          <a href="#insights">Insights</a>
-          <a href="#contact">Contact</a>
-        </nav>
-
-        <button class="nav-button">Book Demo</button>
-      </header>
-
-      <main>
-        <section class="hero">
-          <div class="hero-copy">
-            <p class="eyebrow">The next generation of time</p>
-            <h1>Turn every second into momentum.</h1>
-            <p class="hero-text">
-              A modern digital experience designed to help teams stay aligned,
-              focused, and ready for what matters next.
-            </p>
-
-            <div class="hero-actions">
-              <a href="#experience" class="primary-btn">Explore platform</a>
-              <a href="#features" class="secondary-btn">See features</a>
-            </div>
-
-            <div class="hero-stats" aria-label="Statistics">
-              <div>
-                <strong>24/7</strong>
-                <span>Live monitoring</span>
-              </div>
-              <div>
-                <strong>99.9%</strong>
-                <span>Uptime</span>
-              </div>
-              <div>
-                <strong>3x</strong>
-                <span>Faster decisions</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="clock-panel" aria-live="polite">
-            <div class="status-row">
-              <span class="status-dot"></span>
-              <span class="status-label">System running</span>
-            </div>
-
-            <div class="time-display">
-              <span id="hours">00</span>
-              <span class="divider">:</span>
-              <span id="minutes">00</span>
-              <span class="divider">:</span>
-              <span id="seconds">00</span>
-            </div>
-
-            <div class="date-row">
-              <span id="weekday">Monday</span>
-              <span id="date-text">Aug 31, 2026</span>
-            </div>
-
-            <div class="timezone-card">
-              <div>
-                <p>Current timezone</p>
-                <strong id="timezone-name">Local Time</strong>
-              </div>
-              <span id="timezone-flag">UTC</span>
-            </div>
-          </div>
-        </section>
-
-        <section id="features" class="features">
-          <div class="section-head">
-            <p class="eyebrow">Built for clarity</p>
-            <h2>Everything you need to run your day with confidence.</h2>
-          </div>
-
-          <div class="feature-grid">
-            <article class="feature-card">
-              <div class="icon-box">01</div>
-              <h3>Live timing</h3>
-              <p>
-                Real-time updates, precise scheduling, and instant visibility into
-                the pace of operations.
-              </p>
-            </article>
-
-            <article class="feature-card">
-              <div class="icon-box">02</div>
-              <h3>Global sync</h3>
-              <p>
-                Stay aligned across regions with time-aware workflows and timezone
-                support.
-              </p>
-            </article>
-
-            <article class="feature-card">
-              <div class="icon-box">03</div>
-              <h3>Focused work</h3>
-              <p>
-                Reduce distractions with calm interfaces, structured blocks, and
-                improved planning flow.
-              </p>
-            </article>
-          </div>
-        </section>
-
-        <section id="experience" class="experience">
-          <div class="section-head left-aligned">
-            <p class="eyebrow">Operational clarity</p>
-            <h2>Built from a clock prototype into a real digital experience.</h2>
-          </div>
-
-          <div class="experience-grid">
-            <div class="panel large-panel">
-              <div class="panel-header">
-                <span>Today</span>
-                <span class="badge">Live</span>
-              </div>
-
-              <div class="mini-grid">
-                <div>
-                  <label>Local</label>
-                  <strong id="local-time">00:00:00</strong>
-                </div>
-                <div>
-                  <label>UTC</label>
-                  <strong id="utc-time">00:00:00</strong>
-                </div>
-                <div>
-                  <label>Tokyo</label>
-                  <strong id="tokyo-time">00:00:00</strong>
-                </div>
-                <div>
-                  <label>New York</label>
-                  <strong id="ny-time">00:00:00</strong>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel side-panel">
-              <div class="panel-header">
-                <span>Office rhythm</span>
-              </div>
-
-              <ul class="timeline">
-                <li><span>09:00</span><p>Team alignment</p></li>
-                <li><span>12:30</span><p>Planning sync</p></li>
-                <li><span>15:00</span><p>Delivery check-in</p></li>
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        <section id="insights" class="insights">
-          <div class="section-head">
-            <p class="eyebrow">Insights</p>
-            <h2>Performance that keeps pace with the moment.</h2>
-          </div>
-
-          <div class="insight-grid">
-            <div class="insight-card accent-card">
-              <span class="label">Focus score</span>
-              <strong>92%</strong>
-              <p>Healthy engagement and fewer interruptions throughout the day.</p>
-            </div>
-
-            <div class="insight-card">
-              <span class="label">Response time</span>
-              <strong>0.8s</strong>
-              <p>Near-instant updates with streamlined interface interactions.</p>
-            </div>
-
-            <div class="insight-card">
-              <span class="label">Availability</span>
-              <strong>24/7</strong>
-              <p>Always on, ready for operations, teams, and scheduled planning.</p>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer id="contact" class="footer">
-        <div>
-          <div class="brand-wrap footer-brand">
-            <div class="brand-mark">C</div>
-            <span>ChronoFlow</span>
-          </div>
-        </div>
-        <p>Designed for modern teams who value timing, clarity, and momentum.</p>
-        <a href="mailto:hello@chronoflow.example">hello@chronoflow.example</a>
-      </footer>
     </div>
 
-    <script src="script.js"></script>
-  </body>
+    <canvas id="live-wallpaper-canvas"></canvas>
+
+    <header id="main-header" class="w-full max-w-6xl mx-auto flex justify-between items-center z-30 transition-all duration-300 mb-6 relative">
+        <div class="flex items-center gap-3">
+            <div class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></div>
+            <span class="font-bold text-xs tracking-[0.3em] uppercase opacity-90">DAMCLOCK<span class="text-indigo-400">.GD</span></span>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+            <button id="study-mode-btn" class="px-3 py-2 rounded-2xl glass-btn flex items-center gap-2 text-xs font-medium" title="Study Mode">
+                <i data-lucide="book-open" class="w-4 h-4 opacity-70"></i>
+                <span class="hidden sm:inline">Study</span>
+            </button>
+
+            <button id="zen-btn" class="px-3 py-2 rounded-2xl glass-btn flex items-center gap-2 text-xs font-medium" title="Zen Mode (Z)">
+                <i data-lucide="eye-off" class="w-4 h-4 opacity-70"></i>
+                <span class="hidden sm:inline">Zen</span>
+            </button>
+
+            <button id="theme-btn" class="px-3 py-2 rounded-2xl glass-btn flex items-center gap-2 text-xs font-medium" title="Theme">
+                <i data-lucide="palette" class="w-4 h-4 opacity-70"></i>
+                <span class="hidden sm:inline">Theme</span>
+            </button>
+
+            <button id="music-btn" class="px-3 py-2 rounded-2xl glass-btn flex items-center gap-2 text-xs font-medium" title="Music">
+                <i data-lucide="music" class="w-4 h-4 opacity-70"></i>
+                <span class="hidden sm:inline">Music</span>
+            </button>
+
+            <button id="settings-btn" class="px-3 py-2 rounded-2xl glass-btn flex items-center gap-2 text-xs font-medium" title="Settings (S)">
+                <i data-lucide="settings" class="w-4 h-4 opacity-70"></i>
+                <span class="hidden sm:inline">Settings</span>
+            </button>
+
+            <button id="fullscreen-btn" class="p-2.5 rounded-2xl glass-btn" title="Fullscreen (F)">
+                <i data-lucide="maximize" class="w-4 h-4 opacity-70"></i>
+            </button>
+        </div>
+    </header>
+
+    <nav id="page-nav" aria-label="Main pages">
+        <a class="page-tab" href="#clock" data-page="clock" aria-current="page"><i data-lucide="clock-3"></i><span>Clock</span></a>
+        <a class="page-tab" href="#focus" data-page="focus"><i data-lucide="timer"></i><span>Focus</span></a>
+        <a class="page-tab" href="#timer" data-page="timer"><i data-lucide="hourglass"></i><span>Timer</span></a>
+        <a class="page-tab" href="#weather" data-page="weather"><i data-lucide="cloud-sun"></i><span>Weather</span></a>
+        <a class="page-tab" href="#world" data-page="world"><i data-lucide="globe-2"></i><span>World</span></a>
+        <a class="page-tab" href="#tasks" data-page="tasks"><i data-lucide="check-square"></i><span>Tasks</span></a>
+    </nav>
+
+    <main class="flex-1 flex flex-col justify-center items-center w-full z-10 max-w-6xl mx-auto relative my-auto">
+        <div id="study-mode-panel" class="mb-8">
+            <div class="study-mode-card rounded-[2rem] p-6 sm:p-8">
+                <div class="flex items-center justify-between gap-4 mb-6">
+                    <div>
+                        <p class="text-[10px] uppercase tracking-[0.28em] opacity-60 mb-2">Study Mode</p>
+                        <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight">Deep Focus Session</h2>
+                    </div>
+                    <button id="exit-study-mode-btn" class="px-3 py-2 rounded-xl glass-btn text-xs font-medium">Exit</button>
+                </div>
+
+                <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] items-center">
+                    <div class="rounded-[1.75rem] border border-white/10 bg-black/10 p-6 sm:p-8">
+                        <div class="flex items-center justify-between mb-5">
+                            <span id="study-mode-status" class="text-[10px] uppercase tracking-[0.28em] opacity-70">Focus</span>
+                            <span class="text-[10px] uppercase tracking-[0.2em] opacity-50">Session</span>
+                        </div>
+                        <div id="study-timer-display" class="clock-font text-5xl sm:text-7xl font-light tracking-tight">25:00</div>
+                        <div class="mt-6 flex gap-2">
+                            <button id="study-start-btn" class="px-5 py-2 rounded-xl bg-white text-black font-semibold text-xs">Start</button>
+                            <button id="study-reset-btn" class="px-4 py-2 rounded-xl glass-btn text-xs opacity-80">Reset</button>
+                        </div>
+                    </div>
+
+                    <div class="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 sm:p-6">
+                        <p class="text-[10px] uppercase tracking-[0.28em] opacity-60 mb-4">Today</p>
+                        <ul class="space-y-3 text-sm text-white/80">
+                            <li class="flex items-start gap-3"><span class="mt-1 h-2 w-2 rounded-full bg-indigo-400"></span><span>Finish the most important task before anything else.</span></li>
+                            <li class="flex items-start gap-3"><span class="mt-1 h-2 w-2 rounded-full bg-emerald-400"></span><span>Keep the phone away and work in one uninterrupted block.</span></li>
+                            <li class="flex items-start gap-3"><span class="mt-1 h-2 w-2 rounded-full bg-amber-400"></span><span>Take a short break when the timer ends.</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="clock-format-controls" class="mb-6 flex items-center justify-center gap-2">
+            <div class="rounded-[1.4rem] border border-white/10 bg-white/5 px-3 py-2 shadow-[0_16px_32px_-24px_rgba(0,0,0,0.9)] backdrop-blur-sm">
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <span class="text-[9px] uppercase tracking-[0.28em] opacity-60">Format</span>
+                    <div class="inline-flex rounded-full border border-white/10 bg-black/10 p-1">
+                        <button type="button" data-format="12h" class="clock-format-btn px-3 py-1.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.2em] transition-all opacity-70 hover:opacity-100">12H</button>
+                        <button type="button" data-format="24h" class="clock-format-btn px-3 py-1.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.2em] transition-all opacity-70 hover:opacity-100">24H</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="date-display" class="mb-6 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-[11px] font-semibold tracking-[0.25em] uppercase opacity-70 transition-all duration-300">
+            Loading Date...
+        </div>
+
+        <div id="clock-display-stage" class="flex items-center justify-center gap-3 sm:gap-6 clock-font mb-6">
+            <div class="world-watch-band world-watch-band-top" aria-hidden="true"></div>
+            <div class="world-watch-band world-watch-band-bottom" aria-hidden="true"></div>
+            <div class="world-watch-top-label" aria-hidden="true">WORLD TIME</div>
+            <div id="watch-face-brand" class="watch-face-brand" aria-hidden="true">CASIO <strong id="watch-model-name">F-91W</strong><span id="watch-mode-indicator">ALARM CHRONOGRAPH</span></div>
+            <div class="watch-case-buttons watch-case-buttons-left" aria-label="Left watch buttons">
+                <button type="button" class="watch-case-button" data-watch-button="light" aria-label="Turn watch backlight on">L</button>
+                <button type="button" class="watch-case-button" data-watch-button="reset" aria-label="Reset stopwatch or alarm">R</button>
+            </div>
+            <div class="watch-case-buttons watch-case-buttons-right" aria-label="Right watch buttons">
+                <button type="button" class="watch-case-button" data-watch-button="mode" aria-label="Change watch mode">M</button>
+                <button type="button" class="watch-case-button" data-watch-button="start" aria-label="Change time format, start or stop stopwatch, or toggle alarm">S</button>
+            </div>
+            <div class="watch-backlight" aria-hidden="true"></div>
+            <div class="world-watch-subdial" aria-hidden="true">
+                <span id="world-watch-hour-hand" class="world-watch-hand world-watch-hour-hand"></span>
+                <span id="world-watch-minute-hand" class="world-watch-hand world-watch-minute-hand"></span>
+                <span class="world-watch-hand-pin"></span>
+            </div>
+            <div class="world-watch-map" aria-hidden="true">
+                <svg viewBox="0 0 160 64" role="presentation">
+                    <path d="M5 18 16 11 25 14 29 8 42 10 49 17 45 24 33 25 30 33 22 35 17 46 11 42 13 32 6 29ZM51 36 61 39 66 47 63 58 57 56 56 48ZM71 12 82 8 91 12 99 10 105 15 117 13 122 18 135 16 143 22 154 21 156 27 147 31 135 29 130 36 119 35 113 42 102 39 98 32 87 30 83 23 73 22ZM119 43 130 41 139 45 138 53 130 56 121 51Z"/>
+                    <path class="world-map-grid" d="M12 32H148M80 10V54M30 17C46 28 46 38 30 49M130 17C114 28 114 38 130 49"/>
+                </svg>
+            </div>
+            <div id="world-watch-caption" class="world-watch-caption">HOME / LOCAL</div>
+            <div id="world-watch-day" class="world-watch-day">SU 6-30</div>
+            <div class="modern-card watch-hours-card w-24 h-32 sm:w-44 sm:h-56 rounded-[2rem] flex items-center justify-center shadow-2xl relative">
+                <span id="hours-display" class="text-5xl sm:text-8xl font-extralight tracking-tight">00</span>
+                <span id="ampm-display" class="absolute bottom-3 right-4 text-[9px] sm:text-[10px] font-bold tracking-[0.2em] uppercase opacity-70">AM</span>
+            </div>
+
+            <div class="watch-face-separator flex flex-col gap-3 justify-center items-center px-1">
+                <div class="colon-dot w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full"></div>
+                <div class="colon-dot w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full"></div>
+            </div>
+
+            <div class="modern-card watch-minutes-card w-24 h-32 sm:w-44 sm:h-56 rounded-[2rem] flex items-center justify-center shadow-2xl">
+                <span id="minutes-display" class="text-5xl sm:text-8xl font-extralight tracking-tight">00</span>
+            </div>
+
+            <div id="seconds-group" class="flex items-center gap-3 sm:gap-6">
+                <div class="watch-face-separator flex flex-col gap-3 justify-center items-center px-1">
+                    <div class="colon-dot w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full"></div>
+                    <div class="colon-dot w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full"></div>
+                </div>
+
+                <div class="modern-card watch-seconds-card w-24 h-32 sm:w-44 sm:h-56 rounded-[2rem] flex items-center justify-center shadow-2xl">
+                    <span id="seconds-display" class="text-5xl sm:text-8xl font-extralight tracking-tight">00</span>
+                </div>
+            </div>
+            <div id="watch-face-footer" class="watch-face-footer" aria-hidden="true">WATER RESIST</div>
+        </div>
+
+        <figure id="clock-poem">
+            <figcaption>A moment of motivation</figcaption>
+            <blockquote>Start where you are, take one small stride,<br>
+                Let steady courage be your guide.<br>
+                Each quiet minute, patiently sown,<br>
+                Turns little steps to paths well grown.</blockquote>
+            <p class="poem-author">Original poem by Damclock AI</p>
+        </figure>
+
+        <div id="widgets-container" class="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 transition-all duration-300">
+            <section class="modern-card rounded-[2rem] p-6 flex flex-col justify-between space-y-5" data-page-feature="timer" aria-labelledby="timer-title">
+                <div class="flex justify-between items-center text-xs font-semibold opacity-60 uppercase tracking-wider">
+                    <h2 id="timer-title" class="flex items-center gap-2"><i data-lucide="hourglass" class="w-4 h-4 text-emerald-300"></i> Countdown Timer</h2>
+                    <span id="custom-timer-status" class="text-[10px] px-2 py-0.5 rounded-full bg-white/10 clock-font" role="status" aria-live="polite">READY</span>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <label class="text-center text-[10px] uppercase tracking-[0.18em] text-white/55">Hours
+                        <input id="timer-hours" class="timer-duration-input mt-2" type="number" min="0" max="99" value="0" inputmode="numeric" required aria-label="Timer hours">
+                    </label>
+                    <label class="text-center text-[10px] uppercase tracking-[0.18em] text-white/55">Minutes
+                        <input id="timer-minutes" class="timer-duration-input mt-2" type="number" min="0" max="59" value="5" inputmode="numeric" required aria-label="Timer minutes">
+                    </label>
+                    <label class="text-center text-[10px] uppercase tracking-[0.18em] text-white/55">Seconds
+                        <input id="timer-seconds" class="timer-duration-input mt-2" type="number" min="0" max="59" value="0" inputmode="numeric" required aria-label="Timer seconds">
+                    </label>
+                </div>
+
+                <p id="custom-timer-display" class="clock-font text-center text-5xl sm:text-6xl font-light tracking-tight tabular-nums" role="timer" aria-live="off">00:05:00</p>
+                <p id="custom-timer-error" class="min-h-4 text-center text-xs text-rose-300" role="alert"></p>
+
+                <div class="flex justify-center gap-2">
+                    <button id="custom-timer-start-btn" type="button" class="px-6 py-2.5 rounded-xl bg-white text-black font-semibold text-xs hover:bg-slate-200 active:scale-95 transition-all">Start</button>
+                    <button id="custom-timer-reset-btn" type="button" class="px-5 py-2.5 rounded-xl glass-btn text-xs active:scale-95 transition-all">Reset</button>
+                </div>
+            </section>
+
+            <div class="modern-card rounded-[2rem] p-6 flex flex-col justify-between space-y-3 h-52" data-page-feature="focus">
+                <div class="flex justify-between items-center text-xs font-semibold opacity-60 uppercase tracking-wider">
+                    <span class="flex items-center gap-2"><i data-lucide="timer" class="w-4 h-4 text-indigo-400"></i> Timer Studio</span>
+                    <span id="pomo-status" class="text-[10px] px-2 py-0.5 rounded-full bg-white/10 clock-font">FOCUS</span>
+                </div>
+
+                <div class="flex items-center gap-1.5 p-1 bg-white/5 rounded-xl border border-white/5">
+                    <button id="mode-focus" class="flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all timer-btn-active" onclick="setTimerMode('focus', 25)">25m Focus</button>
+                    <button id="mode-study" class="flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all opacity-60 hover:opacity-100" onclick="setTimerMode('study', 60)">60m Study</button>
+                    <button id="mode-break" class="flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all opacity-60 hover:opacity-100" onclick="setTimerMode('break', 5)">5m Rest</button>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="clock-font text-4xl font-light tracking-tight" id="pomo-display">25:00</div>
+                    <div class="flex gap-2">
+                        <button id="pomo-start-btn" class="px-5 py-2 rounded-xl bg-white text-black font-semibold text-xs hover:bg-slate-200 active:scale-95 transition-all">Start</button>
+                        <button id="pomo-reset-btn" class="p-2 rounded-xl glass-btn text-xs opacity-60 hover:opacity-100 active:scale-95 transition-all"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modern-card rounded-[2rem] p-6 flex flex-col justify-between space-y-3 h-52" data-page-feature="weather">
+                <div class="flex justify-between items-center text-xs font-semibold opacity-60 uppercase tracking-wider">
+                    <span class="flex items-center gap-2"><i data-lucide="cloud-sun" class="w-4 h-4 text-amber-400"></i> Weather</span>
+                    <button id="weather-refresh-btn" type="button" class="rounded-full p-1.5 bg-white/5 hover:bg-white/10 transition-colors" aria-label="Refresh weather">
+                        <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+                <div class="flex items-center justify-between my-auto">
+                    <div>
+                        <div id="weather-temp" class="text-4xl clock-font font-light tracking-tight">--°C</div>
+                        <div id="weather-desc" class="text-xs opacity-60 mt-1">Locating...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modern-card rounded-[2rem] p-6 flex flex-col justify-between space-y-3 h-52" data-page-feature="world">
+                <div class="flex justify-between items-center text-xs font-semibold opacity-60 uppercase tracking-wider">
+                    <span class="flex items-center gap-2"><i data-lucide="globe-2" class="w-4 h-4 text-cyan-400"></i> World Clock</span>
+                </div>
+                <div id="world-clock-list" class="space-y-2.5 text-sm mt-auto">
+                    <div class="flex items-center justify-between rounded-xl bg-white/5 px-2.5 py-2 border border-white/5">
+                        <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-indigo-400"></span><span class="opacity-80">New York</span></div>
+                        <span id="time-new-york" class="clock-font text-xs opacity-90">--:--:--</span>
+                    </div>
+                    <div class="flex items-center justify-between rounded-xl bg-white/5 px-2.5 py-2 border border-white/5">
+                        <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="opacity-80">London</span></div>
+                        <span id="time-london" class="clock-font text-xs opacity-90">--:--:--</span>
+                    </div>
+                    <div class="flex items-center justify-between rounded-xl bg-white/5 px-2.5 py-2 border border-white/5">
+                        <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-400"></span><span class="opacity-80">Tokyo</span></div>
+                        <span id="time-tokyo" class="clock-font text-xs opacity-90">--:--:--</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modern-card rounded-[2rem] p-6 flex flex-col justify-between space-y-3 h-52" data-page-feature="tasks">
+                <div class="flex justify-between items-center text-xs font-semibold opacity-60 uppercase tracking-wider">
+                    <span class="flex items-center gap-2"><i data-lucide="check-square" class="w-4 h-4 text-emerald-400"></i> Tasks</span>
+                    <span id="todo-count" class="text-[10px] clock-font opacity-80">0 left</span>
+                </div>
+                <form id="todo-form" class="flex gap-2">
+                    <input type="text" id="todo-input" placeholder="New task..." class="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-white/30 transition-all placeholder:text-white/30">
+                    <button type="submit" class="px-3 py-1.5 rounded-xl glass-btn text-xs hover:bg-white/15"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                </form>
+                <div id="todo-list" class="todo-scroll flex-1 overflow-y-auto space-y-1.5 pr-1"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-xl hidden justify-center items-center z-50 p-4 opacity-0 transition-all duration-300">
+        <div class="modern-card rounded-[2rem] max-w-sm w-full p-6 shadow-2xl space-y-5">
+            <div class="flex justify-between items-center border-b border-white/10 pb-4">
+                <h3 class="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                    <i data-lucide="settings" class="w-4 h-4 opacity-70"></i> Options
+                </h3>
+                <button id="close-settings-modal" class="p-1 rounded-full hover:bg-white/10 transition-colors opacity-70">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="flex gap-2">
+                <button type="button" class="settings-tab-btn active" data-panel="theme-panel">Theme</button>
+                <button type="button" class="settings-tab-btn" data-panel="music-panel">Music</button>
+            </div>
+
+            <div class="space-y-4 text-xs font-medium">
+                <div id="theme-panel" class="settings-panel active space-y-4">
+                    <div class="rounded-[1.25rem] border border-white/10 bg-white/5 p-3 space-y-3">
+                        <div>
+                            <label class="opacity-80 block mb-2">Display Format</label>
+                            <select id="clock-format-select" class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none">
+                                <option value="24h" class="bg-zinc-900">24 Hour</option>
+                                <option value="12h" class="bg-zinc-900">12 Hour</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="opacity-80 block mb-2">Clock Style</label>
+                            <select id="clock-style-select" class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none">
+                                <option value="glass" class="bg-zinc-900">Glass</option>
+                                <option value="neon" class="bg-zinc-900">Neon</option>
+                                <option value="minimal" class="bg-zinc-900">Minimal</option>
+                                <option value="flip" class="bg-zinc-900">Flip</option>
+                                <option value="sunset" class="bg-zinc-900">Sunset</option>
+                                <option value="aurora" class="bg-zinc-900">Aurora</option>
+                                <option value="f91w" class="bg-zinc-900">Casio F-91W</option>
+                                <option value="worldtime" class="bg-zinc-900">Casio World Time</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="opacity-80 block mb-2">Wallpaper Theme Mode</label>
+                        <select id="wallpaper-mode-select" class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none">
+                            <option value="particles" class="bg-zinc-900">Floating Particles</option>
+                            <option value="waves" class="bg-zinc-900">Smooth Fluid Waves</option>
+                            <option value="matrix" class="bg-zinc-900">Digital Matrix Grid</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-3 border-t border-white/10 space-y-2">
+                        <label class="opacity-80 block">Custom Wallpaper</label>
+                        <input id="custom-wallpaper-upload" type="file" accept="image/*" class="mini-control">
+                        <input id="custom-wallpaper-url" type="url" placeholder="https://example.com/wallpaper.jpg" class="mini-control" />
+                        <div class="flex gap-2">
+                            <button id="apply-wallpaper-url-btn" class="flex-1 rounded-xl px-3 py-2 bg-white text-black text-[10px] font-semibold">Apply</button>
+                            <button id="remove-custom-wallpaper-btn" class="flex-1 rounded-xl px-3 py-2 glass-btn text-[10px] font-semibold">Remove</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="music-panel" class="settings-panel space-y-4">
+                    <div class="pt-3 border-t border-white/10 space-y-2">
+                        <label class="opacity-80 block">Background Music</label>
+                        <input id="background-music-upload" type="file" accept="audio/*" class="mini-control">
+                        <input id="background-music-url" type="url" placeholder="https://example.com/song.mp3" class="mini-control" />
+                        <div class="flex gap-2">
+                            <button id="music-toggle-btn" class="flex-1 rounded-xl px-3 py-2 bg-white text-black text-[10px] font-semibold">Play</button>
+                            <button id="music-stop-btn" class="flex-1 rounded-xl px-3 py-2 glass-btn text-[10px] font-semibold">Stop</button>
+                        </div>
+                        <audio id="background-music" loop preload="auto"></audio>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('live-wallpaper-canvas');
+        const ctx = canvas.getContext('2d');
+
+        const storage = {
+            get(key, fallback = '') {
+                try {
+                    return window.localStorage.getItem(key) || fallback;
+                } catch (error) {
+                    return fallback;
+                }
+            },
+            set(key, value) {
+                try {
+                    window.localStorage.setItem(key, value);
+                } catch (error) {
+                    // Ignore write failures in strict/private browsing modes.
+                }
+            },
+            remove(key) {
+                try {
+                    window.localStorage.removeItem(key);
+                } catch (error) {
+                    // Ignore removal failures in restricted browser modes.
+                }
+            }
+        };
+
+        const requestFrame = window.requestAnimationFrame || function(callback) {
+            return window.setTimeout(callback, 1000 / 60);
+        };
+        const cancelFrame = window.cancelAnimationFrame || window.clearTimeout;
+
+        let width, height;
+        let wallpaperMode = storage.get('wallpaper_mode', 'particles');
+        let particles = [];
+        let waveAngle = 0;
+
+        function resizeCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function initParticles() {
+            particles = [];
+            const count = Math.max(24, Math.floor((width * height) / 42000));
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 1.8 + 0.6,
+                    vx: (Math.random() - 0.5) * 0.25,
+                    vy: (Math.random() - 0.5) * 0.25,
+                    alpha: Math.random() * 0.35 + 0.12
+                });
+            }
+        }
+        initParticles();
+
+        function renderWallpaper() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = '#070709';
+            ctx.fillRect(0, 0, width, height);
+
+            if (wallpaperMode === 'particles') {
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    if (p.x < 0) p.x = width;
+                    if (p.x > width) p.x = 0;
+                    if (p.y < 0) p.y = height;
+                    if (p.y > height) p.y = 0;
+
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(99, 102, 241, ${p.alpha})`;
+                    ctx.fill();
+                });
+            } else if (wallpaperMode === 'waves') {
+                waveAngle += 0.015;
+                ctx.beginPath();
+                ctx.moveTo(0, height * 0.7);
+                for (let x = 0; x < width; x += 25) {
+                    let y = height * 0.7 + Math.sin(x * 0.003 + waveAngle) * 50 + Math.cos(x * 0.005 + waveAngle * 0.5) * 30;
+                    ctx.lineTo(x, y);
+                }
+                ctx.lineTo(width, height);
+                ctx.lineTo(0, height);
+                ctx.fillStyle = 'rgba(99, 102, 241, 0.05)';
+                ctx.fill();
+            } else if (wallpaperMode === 'matrix') {
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+                ctx.font = '12px monospace';
+                particles.forEach((p) => {
+                    p.y += 1.5;
+                    if (p.y > height) p.y = 0;
+                    ctx.fillText(Math.floor(Math.random() * 2), p.x, p.y);
+                });
+            }
+            requestFrame(renderWallpaper);
+        }
+        renderWallpaper();
+
+        const wpSelect = document.getElementById('wallpaper-mode-select');
+        if (wpSelect) {
+            wpSelect.value = wallpaperMode;
+            wpSelect.addEventListener('change', (e) => {
+                wallpaperMode = e.target.value;
+                storage.set('wallpaper_mode', wallpaperMode);
+                initParticles();
+            });
+        }
+
+        const clockStyleSelect = document.getElementById('clock-style-select');
+        const clockFormatSelect = document.getElementById('clock-format-select');
+        let clockStyle = storage.get('dam_clock_style', 'glass');
+        let clockFormat = storage.get('dam_clock_format', '12h');
+        const watchModes = ['time', 'world', 'date', 'stopwatch', 'alarm'];
+        let watchMode = 'time';
+        let stopwatchElapsed = 0;
+        let stopwatchStartedAt = 0;
+        let stopwatchInterval = null;
+        const worldWatchCities = [
+            { name: 'TOKYO', timeZone: 'Asia/Tokyo' },
+            { name: 'SYDNEY', timeZone: 'Australia/Sydney' },
+            { name: 'LONDON', timeZone: 'Europe/London' },
+            { name: 'NEW YORK', timeZone: 'America/New_York' },
+            { name: 'DUBAI', timeZone: 'Asia/Dubai' },
+            { name: 'HONOLULU', timeZone: 'Pacific/Honolulu' }
+        ];
+        const storedWorldCity = Number(storage.get('worldtime_city_index', '0'));
+        let worldCityIndex = Number.isInteger(storedWorldCity) && storedWorldCity >= 0 && storedWorldCity < worldWatchCities.length
+            ? storedWorldCity
+            : 0;
+        const savedAlarmHour = Number(storage.get('f91w_alarm_hour', '7'));
+        const savedAlarmMinute = Number(storage.get('f91w_alarm_minute', '0'));
+        let alarmHour = Number.isInteger(savedAlarmHour) && savedAlarmHour >= 0 && savedAlarmHour <= 23 ? savedAlarmHour : 7;
+        let alarmMinute = Number.isInteger(savedAlarmMinute) && savedAlarmMinute >= 0 && savedAlarmMinute <= 59 ? savedAlarmMinute : 0;
+        let alarmEnabled = storage.get('f91w_alarm_enabled', 'false') === 'true';
+        let alarmRinging = false;
+        let alarmLastTriggeredKey = '';
+        let alarmSetting = false;
+        let alarmSetField = 'hour';
+        let alarmSoundInterval = null;
+        let watchAudioContext = null;
+        let modeHoldTimer = null;
+        let modeHoldTriggered = false;
+        if (clockFormat !== '12h' && clockFormat !== '24h') {
+            clockFormat = '12h';
+        }
+
+        function applyClockStyle(style) {
+            const valid = ['glass', 'neon', 'minimal', 'flip', 'sunset', 'aurora', 'f91w', 'worldtime'];
+            const chosen = valid.includes(style) ? style : 'glass';
+            document.body.classList.remove(...valid.map(s => `clock-style-${s}`));
+            document.body.classList.add(`clock-style-${chosen}`);
+            clockStyle = chosen;
+            storage.set('dam_clock_style', chosen);
+            if (clockStyleSelect) clockStyleSelect.value = chosen;
+            if (chosen === 'f91w' || chosen === 'worldtime') {
+                watchMode = 'time';
+                alarmSetting = false;
+            }
+            const watchModelName = document.getElementById('watch-model-name');
+            if (watchModelName) watchModelName.textContent = chosen === 'worldtime' ? 'AE-1200' : 'F-91W';
+            updateClock();
+        }
+
+        function applyClockFormat(format) {
+            const chosen = format === '24h' ? '24h' : '12h';
+            clockFormat = chosen;
+            storage.set('dam_clock_format', chosen);
+            if (clockFormatSelect) clockFormatSelect.value = chosen;
+            document.querySelectorAll('.clock-format-btn').forEach(btn => {
+                const isActive = btn.dataset.format === chosen;
+                btn.classList.toggle('bg-white', isActive);
+                btn.classList.toggle('text-black', isActive);
+                btn.classList.toggle('opacity-100', isActive);
+                btn.classList.toggle('opacity-70', !isActive);
+                btn.classList.toggle('shadow-sm', isActive);
+            });
+            updateClock();
+            updateWorldClock();
+        }
+
+        document.querySelectorAll('.clock-format-btn').forEach(btn => {
+            btn.addEventListener('click', () => applyClockFormat(btn.dataset.format));
+        });
+
+        if (clockStyleSelect) {
+            clockStyleSelect.value = clockStyle;
+            clockStyleSelect.addEventListener('change', (e) => {
+                applyClockStyle(e.target.value);
+            });
+        }
+
+        if (clockFormatSelect) {
+            clockFormatSelect.value = clockFormat;
+            clockFormatSelect.addEventListener('change', (e) => {
+                applyClockFormat(e.target.value);
+            });
+        }
+
+        applyClockStyle(clockStyle);
+        applyClockFormat(clockFormat);
+
+        const customWallpaperUpload = document.getElementById('custom-wallpaper-upload');
+        const customWallpaperUrlInput = document.getElementById('custom-wallpaper-url');
+        const applyWallpaperUrlBtn = document.getElementById('apply-wallpaper-url-btn');
+        const removeCustomWallpaperBtn = document.getElementById('remove-custom-wallpaper-btn');
+        const backgroundMusic = document.getElementById('background-music');
+        const backgroundMusicUpload = document.getElementById('background-music-upload');
+        const backgroundMusicUrlInput = document.getElementById('background-music-url');
+        const musicToggleBtn = document.getElementById('music-toggle-btn');
+        const musicStopBtn = document.getElementById('music-stop-btn');
+
+        let customWallpaperData = storage.get('dam_clock_custom_wallpaper', '');
+        let customWallpaperUrl = storage.get('dam_clock_custom_wallpaper_url', '');
+        let backgroundMusicData = storage.get('dam_clock_background_music', '');
+        let backgroundMusicUrl = storage.get('dam_clock_background_music_url', '');
+
+        function applyCustomWallpaper(source) {
+            if (!source) {
+                document.body.style.backgroundImage = '';
+                document.body.style.backgroundSize = '';
+                document.body.style.backgroundPosition = '';
+                document.body.style.backgroundRepeat = '';
+                document.body.style.backgroundAttachment = '';
+                return;
+            }
+
+            document.body.style.backgroundImage = `url("${source}")`;
+            document.body.style.backgroundSize = 'cover';
+            document.body.style.backgroundPosition = 'center';
+            document.body.style.backgroundRepeat = 'no-repeat';
+            document.body.style.backgroundAttachment = 'fixed';
+        }
+
+        if (customWallpaperUrlInput) {
+            customWallpaperUrlInput.value = customWallpaperUrl;
+            customWallpaperUrlInput.addEventListener('input', (e) => {
+                customWallpaperUrl = e.target.value.trim();
+                storage.set('dam_clock_custom_wallpaper_url', customWallpaperUrl);
+            });
+        }
+
+        if (applyWallpaperUrlBtn) {
+            applyWallpaperUrlBtn.addEventListener('click', () => {
+                if (!customWallpaperUrl) return;
+                applyCustomWallpaper(customWallpaperUrl);
+                customWallpaperData = customWallpaperUrl;
+                storage.set('dam_clock_custom_wallpaper', customWallpaperUrl);
+            });
+        }
+
+        if (removeCustomWallpaperBtn) {
+            removeCustomWallpaperBtn.addEventListener('click', () => {
+                customWallpaperData = '';
+                customWallpaperUrl = '';
+                storage.remove('dam_clock_custom_wallpaper');
+                storage.remove('dam_clock_custom_wallpaper_url');
+                if (customWallpaperUrlInput) customWallpaperUrlInput.value = '';
+                applyCustomWallpaper('');
+            });
+        }
+
+        if (customWallpaperUpload) {
+            customWallpaperUpload.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    customWallpaperData = String(reader.result);
+                    customWallpaperUrl = customWallpaperData;
+                    storage.set('dam_clock_custom_wallpaper', customWallpaperData);
+                    storage.set('dam_clock_custom_wallpaper_url', customWallpaperData);
+                    if (customWallpaperUrlInput) customWallpaperUrlInput.value = customWallpaperData;
+                    applyCustomWallpaper(customWallpaperData);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        if (customWallpaperData) {
+            applyCustomWallpaper(customWallpaperData);
+        }
+
+        function setMusicSource(source) {
+            if (!backgroundMusic || !source) return;
+            backgroundMusic.src = source;
+            backgroundMusic.load();
+        }
+
+        function toggleBackgroundMusic() {
+            if (!backgroundMusic) return;
+            if (!backgroundMusic.src) {
+                const musicSource = backgroundMusicData || backgroundMusicUrl || (backgroundMusicUrlInput ? backgroundMusicUrlInput.value.trim() : '');
+                if (!musicSource) return;
+                setMusicSource(musicSource);
+            }
+
+            if (backgroundMusic.paused) {
+                backgroundMusic.play().catch(() => {});
+                if (musicToggleBtn) musicToggleBtn.textContent = 'Pause';
+            } else {
+                backgroundMusic.pause();
+                if (musicToggleBtn) musicToggleBtn.textContent = 'Play';
+            }
+        }
+
+        if (musicToggleBtn) {
+            musicToggleBtn.addEventListener('click', toggleBackgroundMusic);
+        }
+
+        if (musicStopBtn) {
+            musicStopBtn.addEventListener('click', () => {
+                if (!backgroundMusic) return;
+                backgroundMusic.pause();
+                backgroundMusic.currentTime = 0;
+                if (musicToggleBtn) musicToggleBtn.textContent = 'Play';
+            });
+        }
+
+        if (backgroundMusicUrlInput) {
+            backgroundMusicUrlInput.value = backgroundMusicUrl;
+            backgroundMusicUrlInput.addEventListener('input', (e) => {
+                backgroundMusicUrl = e.target.value.trim();
+                storage.set('dam_clock_background_music_url', backgroundMusicUrl);
+            });
+        }
+
+        if (backgroundMusicUpload) {
+            backgroundMusicUpload.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    backgroundMusicData = String(reader.result);
+                    storage.set('dam_clock_background_music', backgroundMusicData);
+                    if (backgroundMusic) {
+                        setMusicSource(backgroundMusicData);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        if (backgroundMusicData) {
+            setMusicSource(backgroundMusicData);
+        } else if (backgroundMusicUrl) {
+            setMusicSource(backgroundMusicUrl);
+        }
+
+        function refreshIcons() {
+            if (window.lucide && typeof lucide.createIcons === 'function') {
+                lucide.createIcons();
+            }
+        }
+
+        function playStudyOverSound() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance('study time is over');
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        let pomoTime = 25 * 60;
+        let pomoTimer = null;
+        let isPomoRunning = false;
+        let currentMode = 'focus';
+
+        function updateFocusTimerDisplay(element, value) {
+            if (!element) return;
+
+            const digits = Array.from(value);
+            const children = Array.from(element.children);
+            if (children.length === 0) element.textContent = '';
+            const shouldAnimate = children.length > 0
+                && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            digits.forEach((digit, index) => {
+                let digitNode = children[index];
+                if (!digitNode) {
+                    digitNode = document.createElement('span');
+                    element.appendChild(digitNode);
+                }
+
+                if (digitNode.textContent !== digit) {
+                    digitNode.textContent = digit;
+                    if (shouldAnimate && digit !== ':') {
+                        digitNode.classList.remove('focus-timer-digit-flip');
+                        void digitNode.offsetWidth;
+                        digitNode.classList.add('focus-timer-digit-flip');
+                    }
+                }
+
+                if (digit !== ':') digitNode.classList.add('focus-timer-digit');
+            });
+
+            children.slice(digits.length).forEach(digitNode => digitNode.remove());
+        }
+
+        function setTimerMode(mode, minutes) {
+            clearInterval(pomoTimer);
+            isPomoRunning = false;
+            currentMode = mode;
+            pomoTime = minutes * 60;
+
+            const startBtn = document.getElementById('pomo-start-btn');
+            const studyStartBtn = document.getElementById('study-start-btn');
+            if (startBtn) startBtn.textContent = 'Start';
+            if (studyStartBtn) studyStartBtn.textContent = 'Start';
+
+            document.querySelectorAll('[id^="mode-"]').forEach(btn => {
+                btn.className = 'flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all opacity-60 hover:opacity-100';
+            });
+            const activeBtn = document.getElementById(`mode-${mode}`);
+            if (activeBtn) activeBtn.className = 'flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all timer-btn-active';
+
+            const statusEl = document.getElementById('pomo-status');
+            const studyStatusEl = document.getElementById('study-mode-status');
+            if (statusEl) statusEl.textContent = mode.toUpperCase();
+            if (studyStatusEl) studyStatusEl.textContent = mode.toUpperCase();
+            updateTimerDisplay();
+        }
+
+        function updateTimerDisplay() {
+            const m = String(Math.floor(pomoTime / 60)).padStart(2, '0');
+            const s = String(pomoTime % 60).padStart(2, '0');
+            const value = `${m}:${s}`;
+
+            const pomoDisplay = document.getElementById('pomo-display');
+            const studyDisplay = document.getElementById('study-timer-display');
+            updateFocusTimerDisplay(pomoDisplay, value);
+            updateFocusTimerDisplay(studyDisplay, value);
+        }
+
+        function togglePomo() {
+            const startBtn = document.getElementById('pomo-start-btn');
+            const studyStartBtn = document.getElementById('study-start-btn');
+            const status = document.getElementById('pomo-status');
+            const studyStatus = document.getElementById('study-mode-status');
+
+            if (isPomoRunning) {
+                clearInterval(pomoTimer);
+                isPomoRunning = false;
+                if (startBtn) startBtn.textContent = 'Start';
+                if (studyStartBtn) studyStartBtn.textContent = 'Start';
+                if (status) status.textContent = 'PAUSED';
+                if (studyStatus) studyStatus.textContent = 'PAUSED';
+            } else {
+                isPomoRunning = true;
+                if (startBtn) startBtn.textContent = 'Pause';
+                if (studyStartBtn) studyStartBtn.textContent = 'Pause';
+                if (status) status.textContent = 'RUNNING';
+                if (studyStatus) studyStatus.textContent = 'RUNNING';
+
+                pomoTimer = setInterval(() => {
+                    if (pomoTime > 0) {
+                        pomoTime--;
+                        updateTimerDisplay();
+                    } else {
+                        clearInterval(pomoTimer);
+                        isPomoRunning = false;
+                        if (startBtn) startBtn.textContent = 'Start';
+                        if (studyStartBtn) studyStartBtn.textContent = 'Start';
+                        if (status) status.textContent = 'DONE';
+                        if (studyStatus) studyStatus.textContent = 'DONE';
+                        playStudyOverSound();
+                    }
+                }, 1000);
+            }
+        }
+
+        document.getElementById('pomo-start-btn').addEventListener('click', togglePomo);
+        document.getElementById('study-start-btn').addEventListener('click', togglePomo);
+        document.getElementById('pomo-reset-btn').addEventListener('click', () => {
+            const defaultMins = currentMode === 'focus' ? 25 : (currentMode === 'study' ? 60 : 5);
+            setTimerMode(currentMode, defaultMins);
+        });
+        document.getElementById('study-reset-btn').addEventListener('click', () => {
+            const defaultMins = currentMode === 'focus' ? 25 : (currentMode === 'study' ? 60 : 5);
+            setTimerMode(currentMode, defaultMins);
+        });
+
+        const customTimerInputs = [
+            document.getElementById('timer-hours'),
+            document.getElementById('timer-minutes'),
+            document.getElementById('timer-seconds')
+        ];
+        const customTimerDisplay = document.getElementById('custom-timer-display');
+        const customTimerStatus = document.getElementById('custom-timer-status');
+        const customTimerError = document.getElementById('custom-timer-error');
+        const customTimerStartButton = document.getElementById('custom-timer-start-btn');
+        let customTimerInterval = null;
+        let customTimerState = 'idle';
+        let customTimerRemainingMs = 0;
+        let customTimerDeadline = 0;
+
+        function getCustomTimerDuration() {
+            if (customTimerInputs.some(input => !input.validity.valid || input.value === '')) return null;
+            const [hours, minutes, seconds] = customTimerInputs.map(input => Number(input.value));
+            const duration = hours * 3600 + minutes * 60 + seconds;
+            return duration > 0 ? duration : null;
+        }
+
+        function formatCustomTimer(milliseconds) {
+            const totalSeconds = Math.ceil(Math.max(0, milliseconds) / 1000);
+            const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+            const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+            const seconds = String(totalSeconds % 60).padStart(2, '0');
+            return `${hours}:${minutes}:${seconds}`;
+        }
+
+        function updateCustomTimerDisplay(milliseconds) {
+            customTimerDisplay.textContent = formatCustomTimer(milliseconds);
+        }
+
+        function setCustomTimerInputsDisabled(disabled) {
+            customTimerInputs.forEach(input => { input.disabled = disabled; });
+        }
+
+        function refreshCustomTimerFromInputs() {
+            if (customTimerState !== 'idle') return;
+            const duration = getCustomTimerDuration();
+            customTimerError.textContent = '';
+            if (duration === null) {
+                updateCustomTimerDisplay(0);
+                customTimerStatus.textContent = 'SET TIME';
+                return;
+            }
+            updateCustomTimerDisplay(duration * 1000);
+            customTimerStatus.textContent = 'READY';
+        }
+
+        function finishCustomTimer() {
+            clearInterval(customTimerInterval);
+            customTimerInterval = null;
+            customTimerState = 'done';
+            customTimerRemainingMs = 0;
+            updateCustomTimerDisplay(0);
+            customTimerStatus.textContent = 'DONE';
+            customTimerStartButton.textContent = 'Start';
+            setCustomTimerInputsDisabled(false);
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(new SpeechSynthesisUtterance('Timer complete'));
+            }
+        }
+
+        function tickCustomTimer() {
+            customTimerRemainingMs = customTimerDeadline - Date.now();
+            if (customTimerRemainingMs <= 0) {
+                finishCustomTimer();
+                return;
+            }
+            updateCustomTimerDisplay(customTimerRemainingMs);
+        }
+
+        customTimerStartButton.addEventListener('click', () => {
+            if (customTimerState === 'running') {
+                customTimerRemainingMs = Math.max(0, customTimerDeadline - Date.now());
+                clearInterval(customTimerInterval);
+                customTimerInterval = null;
+                customTimerState = 'paused';
+                customTimerStatus.textContent = 'PAUSED';
+                customTimerStartButton.textContent = 'Resume';
+                updateCustomTimerDisplay(customTimerRemainingMs);
+                return;
+            }
+
+            if (customTimerState === 'idle' || customTimerState === 'done') {
+                const duration = getCustomTimerDuration();
+                if (duration === null) {
+                    customTimerError.textContent = 'Set a time from 1 second to 99:59:59.';
+                    customTimerStatus.textContent = 'SET TIME';
+                    return;
+                }
+                customTimerRemainingMs = duration * 1000;
+                customTimerError.textContent = '';
+            }
+
+            customTimerDeadline = Date.now() + customTimerRemainingMs;
+            customTimerState = 'running';
+            customTimerStatus.textContent = 'RUNNING';
+            customTimerStartButton.textContent = 'Pause';
+            setCustomTimerInputsDisabled(true);
+            tickCustomTimer();
+            if (customTimerState === 'running') {
+                customTimerInterval = window.setInterval(tickCustomTimer, 200);
+            }
+        });
+
+        document.getElementById('custom-timer-reset-btn').addEventListener('click', () => {
+            clearInterval(customTimerInterval);
+            customTimerInterval = null;
+            customTimerState = 'idle';
+            customTimerRemainingMs = 0;
+            customTimerStartButton.textContent = 'Start';
+            setCustomTimerInputsDisabled(false);
+            customTimerError.textContent = '';
+            refreshCustomTimerFromInputs();
+        });
+
+        customTimerInputs.forEach(input => input.addEventListener('input', () => {
+            if (customTimerState === 'done') customTimerState = 'idle';
+            refreshCustomTimerFromInputs();
+        }));
+
+        function updateClock() {
+            const now = new Date();
+            const hours = document.getElementById('hours-display');
+            const minutes = document.getElementById('minutes-display');
+            const seconds = document.getElementById('seconds-display');
+            const date = document.getElementById('date-display');
+            const ampm = document.getElementById('ampm-display');
+            const stage = document.getElementById('clock-display-stage');
+            const modeIndicator = document.getElementById('watch-mode-indicator');
+            const footer = document.getElementById('watch-face-footer');
+            const worldCaption = document.getElementById('world-watch-caption');
+            const worldDay = document.getElementById('world-watch-day');
+            const worldHourHand = document.getElementById('world-watch-hour-hand');
+            const worldMinuteHand = document.getElementById('world-watch-minute-hand');
+
+            const formatNumber = value => String(value).padStart(2, '0');
+            const isWatchFace = document.body.classList.contains('clock-style-f91w')
+                || document.body.classList.contains('clock-style-worldtime');
+            const isWorldTimeWatch = document.body.classList.contains('clock-style-worldtime');
+            const use12Hour = clockFormat === '12h';
+            const currentHour = now.getHours();
+            const activeWorldCity = worldWatchCities[worldCityIndex];
+            const subdialTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const subdialParts = new Intl.DateTimeFormat('en-GB', {
+                timeZone: subdialTimeZone,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hourCycle: 'h23'
+            }).formatToParts(now);
+            const subdialValues = Object.fromEntries(subdialParts.map(part => [part.type, part.value]));
+            if (worldHourHand && worldMinuteHand) {
+                const handHourAngle = (Number(subdialValues.hour) % 12) * 30 + Number(subdialValues.minute) * 0.5;
+                const handMinuteAngle = Number(subdialValues.minute) * 6 + Number(subdialValues.second) * 0.1;
+                worldHourHand.style.setProperty('--world-hand-angle', `${handHourAngle}deg`);
+                worldMinuteHand.style.setProperty('--world-hand-angle', `${handMinuteAngle}deg`);
+            }
+
+            if (stage) stage.dataset.watchMode = watchMode;
+            if (isWatchFace && watchMode === 'stopwatch') {
+                const elapsed = stopwatchElapsed + (stopwatchStartedAt ? Date.now() - stopwatchStartedAt : 0);
+                const hundredths = Math.floor(elapsed / 10) % 100;
+                const totalSeconds = Math.floor(elapsed / 1000);
+                if (hours) hours.textContent = formatNumber(Math.floor(totalSeconds / 60) % 100);
+                if (minutes) minutes.textContent = formatNumber(totalSeconds % 60);
+                if (seconds) seconds.textContent = formatNumber(hundredths);
+                if (ampm) ampm.classList.add('hidden');
+                if (modeIndicator) modeIndicator.textContent = stopwatchStartedAt ? 'STOPWATCH / RUN' : 'STOPWATCH';
+                if (footer) footer.textContent = stopwatchStartedAt ? 'START / STOP' : 'START TO RUN';
+                if (worldCaption && isWorldTimeWatch) worldCaption.textContent = 'CHRONOGRAPH';
+                if (worldDay && isWorldTimeWatch) worldDay.textContent = '1/100 SEC';
+            } else if (isWatchFace && watchMode === 'date') {
+                if (hours) hours.textContent = formatNumber(now.getDate());
+                if (minutes) minutes.textContent = formatNumber(now.getMonth() + 1);
+                if (seconds) seconds.textContent = formatNumber(now.getFullYear() % 100);
+                if (ampm) ampm.classList.add('hidden');
+                if (modeIndicator) modeIndicator.textContent = 'DATE / DAY';
+                if (footer) footer.textContent = now.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+                if (worldCaption && isWorldTimeWatch) worldCaption.textContent = 'DAY / MONTH / YEAR';
+                if (worldDay && isWorldTimeWatch) worldDay.textContent = now.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+            } else if (isWatchFace && watchMode === 'world') {
+                const worldTimeParts = new Intl.DateTimeFormat('en-US', {
+                    timeZone: activeWorldCity.timeZone,
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: use12Hour
+                }).formatToParts(now);
+                const worldTimeValues = Object.fromEntries(worldTimeParts.map(part => [part.type, part.value]));
+                const worldHour = Number(worldTimeValues.hour);
+                if (hours) hours.textContent = formatNumber(worldHour);
+                if (minutes) minutes.textContent = worldTimeValues.minute;
+                if (seconds) seconds.textContent = worldTimeValues.second;
+                if (ampm) {
+                    ampm.textContent = worldTimeValues.dayPeriod || '';
+                    ampm.classList.toggle('hidden', !use12Hour);
+                }
+                if (modeIndicator) modeIndicator.textContent = `WORLD / ${activeWorldCity.name}`;
+                if (worldCaption) {
+                    const zoneName = new Intl.DateTimeFormat('en', {
+                        timeZone: activeWorldCity.timeZone,
+                        timeZoneName: 'shortOffset'
+                    }).formatToParts(now).find(part => part.type === 'timeZoneName')?.value || 'UTC';
+                    worldCaption.textContent = `${activeWorldCity.name} / ${zoneName}`;
+                }
+                if (worldDay) {
+                    worldDay.textContent = new Intl.DateTimeFormat('en-US', {
+                        timeZone: activeWorldCity.timeZone,
+                        weekday: 'short',
+                        month: '2-digit',
+                        day: '2-digit'
+                    }).format(now).toUpperCase();
+                }
+                if (footer) footer.textContent = 'S: NEXT CITY';
+            } else if (isWatchFace && watchMode === 'alarm') {
+                if (hours) hours.textContent = formatNumber(alarmHour);
+                if (minutes) minutes.textContent = formatNumber(alarmMinute);
+                if (seconds) seconds.textContent = '';
+                if (ampm) ampm.classList.add('hidden');
+                if (modeIndicator) {
+                    modeIndicator.textContent = alarmSetting
+                        ? `SET ${alarmSetField.toUpperCase()}`
+                        : alarmRinging ? 'ALARM / RINGING' : 'ALARM';
+                }
+                if (footer) footer.textContent = alarmSetting
+                    ? 'START: CHANGE / RESET: FIELD'
+                    : alarmRinging ? 'RESET TO SILENCE' : `ALARM ${alarmEnabled ? 'ON' : 'OFF'}`;
+                if (worldCaption && isWorldTimeWatch) worldCaption.textContent = alarmSetting ? 'SET ALARM TIME' : 'ALARM / DAILY';
+                if (worldDay && isWorldTimeWatch) worldDay.textContent = 'SIG  ALM';
+                if (alarmEnabled && !alarmRinging
+                    && currentHour === alarmHour
+                    && now.getMinutes() === alarmMinute
+                    && alarmLastTriggeredKey !== `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${currentHour}-${now.getMinutes()}`) {
+                    startWatchAlarm();
+                }
+            } else {
+                const displayHour = use12Hour ? (currentHour % 12 || 12) : currentHour;
+                const suffix = use12Hour ? (currentHour >= 12 ? 'PM' : 'AM') : '';
+                if (hours) hours.textContent = formatNumber(displayHour);
+                if (minutes) minutes.textContent = formatNumber(now.getMinutes());
+                if (seconds) seconds.textContent = formatNumber(now.getSeconds());
+                if (ampm) {
+                    ampm.textContent = suffix;
+                    ampm.classList.toggle('hidden', !use12Hour || (isWatchFace && watchMode === 'date'));
+                }
+                if (modeIndicator) modeIndicator.textContent = 'ALARM CHRONOGRAPH';
+                if (footer) footer.textContent = 'WATER RESIST';
+                if (worldCaption && isWorldTimeWatch) worldCaption.textContent = 'HOME / LOCAL';
+                if (isWorldTimeWatch && footer) footer.textContent = 'ILLUMINATOR';
+                if (worldDay && isWorldTimeWatch) {
+                    worldDay.textContent = now.toLocaleDateString('en-US', { weekday: 'short', month: '2-digit', day: '2-digit' }).toUpperCase();
+                }
+            }
+            if (date) date.textContent = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function advanceWatchMode() {
+            if (alarmSetting) {
+                alarmSetting = false;
+                updateClock();
+                return;
+            }
+
+            const currentIndex = watchModes.indexOf(watchMode);
+            watchMode = watchModes[(currentIndex + 1) % watchModes.length];
+            updateClock();
+        }
+
+        function stopWatchAlarm() {
+            alarmRinging = false;
+            if (alarmSoundInterval !== null) {
+                window.clearInterval(alarmSoundInterval);
+                alarmSoundInterval = null;
+            }
+            updateClock();
+        }
+
+        function playWatchAlarmTone() {
+            if (!watchAudioContext) return;
+            const oscillator = watchAudioContext.createOscillator();
+            const gain = watchAudioContext.createGain();
+            oscillator.type = 'square';
+            oscillator.frequency.value = 880;
+            gain.gain.value = 0.035;
+            oscillator.connect(gain);
+            gain.connect(watchAudioContext.destination);
+            oscillator.start();
+            oscillator.stop(watchAudioContext.currentTime + 0.16);
+        }
+
+        function startWatchAlarm() {
+            alarmRinging = true;
+            const now = new Date();
+            alarmLastTriggeredKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${now.getMinutes()}`;
+            playWatchAlarmTone();
+            alarmSoundInterval = window.setInterval(playWatchAlarmTone, 1000);
+            if (navigator.vibrate) navigator.vibrate([250, 150, 250]);
+            updateClock();
+        }
+
+        function updateStopwatchDisplay() {
+            if (!stopwatchStartedAt || watchMode !== 'stopwatch') return;
+            const elapsed = stopwatchElapsed + Date.now() - stopwatchStartedAt;
+            const totalSeconds = Math.floor(elapsed / 1000);
+            document.getElementById('hours-display').textContent = String(Math.floor(totalSeconds / 60) % 100).padStart(2, '0');
+            document.getElementById('minutes-display').textContent = String(totalSeconds % 60).padStart(2, '0');
+            document.getElementById('seconds-display').textContent = String(Math.floor(elapsed / 10) % 100).padStart(2, '0');
+        }
+
+        function handleWatchStart() {
+            if (watchMode === 'stopwatch') {
+                if (stopwatchStartedAt) {
+                    stopwatchElapsed += Date.now() - stopwatchStartedAt;
+                    stopwatchStartedAt = 0;
+                    if (stopwatchInterval !== null) {
+                        window.clearInterval(stopwatchInterval);
+                        stopwatchInterval = null;
+                    }
+                } else {
+                    stopwatchStartedAt = Date.now();
+                    stopwatchInterval = window.setInterval(updateStopwatchDisplay, 50);
+                }
+            } else if (watchMode === 'alarm' && alarmSetting) {
+                if (alarmSetField === 'hour') alarmHour = (alarmHour + 1) % 24;
+                else alarmMinute = (alarmMinute + 1) % 60;
+                storage.set('f91w_alarm_hour', String(alarmHour));
+                storage.set('f91w_alarm_minute', String(alarmMinute));
+            } else if (watchMode === 'alarm') {
+                alarmEnabled = !alarmEnabled;
+                storage.set('f91w_alarm_enabled', String(alarmEnabled));
+                if (alarmEnabled && window.AudioContext && !watchAudioContext) {
+                    watchAudioContext = new window.AudioContext();
+                }
+                if (!alarmEnabled && alarmRinging) stopWatchAlarm();
+            } else if (watchMode === 'world') {
+                worldCityIndex = (worldCityIndex + 1) % worldWatchCities.length;
+                storage.set('worldtime_city_index', String(worldCityIndex));
+            } else if (watchMode === 'time') {
+                applyClockFormat(clockFormat === '12h' ? '24h' : '12h');
+            }
+            updateClock();
+        }
+
+        function handleWatchReset() {
+            if (watchMode === 'stopwatch') {
+                stopwatchElapsed = 0;
+                stopwatchStartedAt = 0;
+                if (stopwatchInterval !== null) {
+                    window.clearInterval(stopwatchInterval);
+                    stopwatchInterval = null;
+                }
+            } else if (watchMode === 'alarm' && alarmSetting) {
+                alarmSetField = alarmSetField === 'hour' ? 'minute' : 'hour';
+            } else if (watchMode === 'alarm') {
+                alarmEnabled = false;
+                storage.set('f91w_alarm_enabled', 'false');
+                if (alarmRinging) stopWatchAlarm();
+            }
+            updateClock();
+        }
+
+        document.querySelectorAll('[data-watch-button]').forEach(button => {
+            button.addEventListener('click', () => {
+                if (!document.body.classList.contains('clock-style-f91w')
+                    && !document.body.classList.contains('clock-style-worldtime')) return;
+                switch (button.dataset.watchButton) {
+                    case 'light':
+                        document.body.classList.add(clockStyle === 'worldtime' ? 'worldtime-light-on' : 'f91w-light-on');
+                        window.setTimeout(() => {
+                            document.body.classList.remove('f91w-light-on', 'worldtime-light-on');
+                        }, 3000);
+                        break;
+                    case 'mode':
+                        if (!modeHoldTriggered) advanceWatchMode();
+                        modeHoldTriggered = false;
+                        break;
+                    case 'start':
+                        handleWatchStart();
+                        break;
+                    case 'reset':
+                        handleWatchReset();
+                        break;
+                    default:
+                        break;
+                }
+            });
+        });
+
+        const watchModeButton = document.querySelector('[data-watch-button="mode"]');
+        if (watchModeButton) {
+            watchModeButton.addEventListener('pointerdown', () => {
+                modeHoldTriggered = false;
+                if (watchMode !== 'alarm') return;
+                modeHoldTimer = window.setTimeout(() => {
+                    alarmSetting = !alarmSetting;
+                    alarmSetField = 'hour';
+                    modeHoldTriggered = true;
+                    updateClock();
+                }, 650);
+            });
+            ['pointerup', 'pointerleave', 'pointercancel'].forEach(eventName => {
+                watchModeButton.addEventListener(eventName, () => {
+                    if (modeHoldTimer !== null) {
+                        window.clearTimeout(modeHoldTimer);
+                        modeHoldTimer = null;
+                    }
+                });
+            });
+        }
+
+        function formatTimeForZone(timeZone) {
+            const now = new Date();
+            return new Intl.DateTimeFormat('en-GB', {
+                timeZone,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: clockFormat === '12h'
+            }).format(now);
+        }
+
+        function updateWorldClock() {
+            const cityMap = {
+                'time-new-york': 'America/New_York',
+                'time-london': 'Europe/London',
+                'time-tokyo': 'Asia/Tokyo'
+            };
+
+            Object.entries(cityMap).forEach(([elementId, timeZone]) => {
+                const el = document.getElementById(elementId);
+                if (el) {
+                    el.textContent = formatTimeForZone(timeZone);
+                }
+            });
+        }
+
+        function toggleStudyMode(forceState) {
+            const shouldStudy = typeof forceState === 'boolean' ? forceState : !document.body.classList.contains('study-mode-active');
+            document.body.classList.toggle('study-mode-active', shouldStudy);
+            const studyBtn = document.getElementById('study-mode-btn');
+            if (studyBtn) {
+                studyBtn.classList.toggle('ring-1', shouldStudy);
+                studyBtn.classList.toggle('ring-white/20', shouldStudy);
+            }
+        }
+
+        const studyModeBtn = document.getElementById('study-mode-btn');
+        const exitStudyModeBtn = document.getElementById('exit-study-mode-btn');
+        if (studyModeBtn) studyModeBtn.addEventListener('click', () => {
+            const shouldStudy = !document.body.classList.contains('study-mode-active');
+            if (shouldStudy) window.location.hash = '#focus';
+            toggleStudyMode(shouldStudy);
+        });
+        if (exitStudyModeBtn) exitStudyModeBtn.addEventListener('click', () => toggleStudyMode(false));
+
+        function toggleZen() {
+            document.querySelectorAll('#main-header, #page-nav, #widgets-container, #date-display').forEach(el => {
+                if (el) el.classList.toggle('zen-hidden');
+            });
+        }
+
+        document.getElementById('zen-btn').addEventListener('click', toggleZen);
+
+        const settingsModal = document.getElementById('settings-modal');
+        const themeBtn = document.getElementById('theme-btn');
+        const musicBtn = document.getElementById('music-btn');
+        const settingsTabs = document.querySelectorAll('.settings-tab-btn');
+        const settingsPanels = document.querySelectorAll('.settings-panel');
+
+        function openSettingsPanel(panelName) {
+            settingsTabs.forEach((tab) => {
+                tab.classList.toggle('active', tab.dataset.panel === panelName);
+            });
+            settingsPanels.forEach((panel) => {
+                panel.classList.toggle('active', panel.id === panelName);
+            });
+        }
+
+        function openSettingsModal(panelName = 'theme-panel') {
+            settingsModal.classList.remove('hidden');
+            setTimeout(() => settingsModal.classList.remove('opacity-0'), 10);
+            openSettingsPanel(panelName);
+        }
+
+        document.getElementById('settings-btn').addEventListener('click', () => openSettingsModal('theme-panel'));
+        if (themeBtn) themeBtn.addEventListener('click', () => openSettingsModal('theme-panel'));
+        if (musicBtn) musicBtn.addEventListener('click', () => openSettingsModal('music-panel'));
+
+        settingsTabs.forEach((tab) => {
+            tab.addEventListener('click', () => openSettingsPanel(tab.dataset.panel));
+        });
+
+        document.getElementById('close-settings-modal').addEventListener('click', () => {
+            settingsModal.classList.add('opacity-0');
+            setTimeout(() => settingsModal.classList.add('hidden'), 300);
+        });
+
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        if (fullscreenBtn) {
+            const fsDoc = document.documentElement;
+            const requestFs = fsDoc.requestFullscreen || fsDoc.webkitRequestFullscreen || fsDoc.mozRequestFullScreen || fsDoc.msRequestFullscreen;
+            const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+
+            fullscreenBtn.addEventListener('click', () => {
+                if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement) {
+                    if (requestFs) requestFs.call(fsDoc).catch(() => {});
+                } else if (exitFs) {
+                    exitFs.call(document);
+                }
+            });
+        }
+
+        let todos = [];
+        try {
+            const savedTodos = storage.get('todos');
+            todos = savedTodos ? JSON.parse(savedTodos) : [{ id: 1, text: 'Review study mode goals', done: false }];
+        } catch (error) {
+            todos = [{ id: 1, text: 'Review study mode goals', done: false }];
+        }
+        function renderTodos() {
+            const list = document.getElementById('todo-list');
+            const countEl = document.getElementById('todo-count');
+            if (!list) return;
+
+            list.innerHTML = '';
+            todos.forEach(t => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between bg-white/5 px-3 py-1.5 rounded-xl text-xs border border-white/5';
+                item.innerHTML = `
+                    <div class="flex items-center gap-2 cursor-pointer flex-1" onclick="toggleTodo(${t.id})">
+                        <i data-lucide="${t.done ? 'check-circle-2' : 'circle'}" class="w-3.5 h-3.5 ${t.done ? 'text-emerald-400 opacity-50' : 'opacity-70'}"></i>
+                        <span class="${t.done ? 'line-through opacity-40' : 'opacity-90'}">${t.text}</span>
+                    </div>
+                    <button onclick="deleteTodo(${t.id})" class="opacity-40 hover:opacity-100"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                `;
+                list.appendChild(item);
+            });
+
+            if (countEl) countEl.textContent = `${todos.filter(t => !t.done).length} left`;
+            storage.set('todos', JSON.stringify(todos));
+            refreshIcons();
+        }
+
+        const todoForm = document.getElementById('todo-form');
+        if (todoForm) {
+            todoForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = document.getElementById('todo-input');
+                if (input && input.value.trim()) {
+                    todos.push({ id: Date.now(), text: input.value.trim(), done: false });
+                    input.value = '';
+                    renderTodos();
+                }
+            });
+        }
+
+        window.toggleTodo = (id) => { todos = todos.map(t => t.id === id ? { ...t, done: !t.done } : t); renderTodos(); };
+        window.deleteTodo = (id) => { todos = todos.filter(t => t.id !== id); renderTodos(); };
+
+        function getWeatherDescription(code) {
+            const weatherMap = {
+                0: 'Clear sky',
+                1: 'Mostly clear',
+                2: 'Partly cloudy',
+                3: 'Cloudy',
+                45: 'Foggy',
+                48: 'Foggy',
+                51: 'Light drizzle',
+                53: 'Drizzle',
+                55: 'Heavy drizzle',
+                56: 'Freezing drizzle',
+                57: 'Freezing drizzle',
+                61: 'Light rain',
+                63: 'Rain',
+                65: 'Heavy rain',
+                66: 'Freezing rain',
+                67: 'Freezing rain',
+                71: 'Light snow',
+                73: 'Snow',
+                75: 'Heavy snow',
+                77: 'Snow grains',
+                80: 'Rain showers',
+                81: 'Heavy showers',
+                82: 'Violent showers',
+                85: 'Snow showers',
+                86: 'Heavy snow showers',
+                95: 'Thunderstorm',
+                96: 'Thunderstorm',
+                99: 'Thunderstorm'
+            };
+            return weatherMap[code] || 'Live conditions';
+        }
+
+        async function loadWeatherForCoordinates(latitude, longitude, fallbackLabel = 'Live conditions') {
+            const tempEl = document.getElementById('weather-temp');
+            const descEl = document.getElementById('weather-desc');
+            if (!tempEl || !descEl) return;
+
+            try {
+                const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`);
+                if (!response.ok) throw new Error('Weather request failed');
+
+                const data = await response.json();
+                const current = data.current || {};
+                const temp = Math.round(current.temperature_2m ?? 0);
+                const wind = Math.round(current.wind_speed_10m ?? 0);
+                const description = getWeatherDescription(current.weather_code ?? 0);
+
+                tempEl.textContent = `${temp}°C`;
+                descEl.textContent = fallbackLabel === 'Live conditions' ? `${description} • ${wind} km/h` : `${fallbackLabel} • ${description}`;
+            } catch (error) {
+                tempEl.textContent = '--°C';
+                descEl.textContent = 'Weather unavailable';
+            }
+        }
+
+        async function loadFallbackWeather() {
+            const defaultCities = [
+                { label: 'New York', lat: 40.7128, lon: -74.0060 },
+                { label: 'London', lat: 51.5072, lon: -0.1276 },
+                { label: 'Tokyo', lat: 35.6762, lon: 139.6503 }
+            ];
+
+            const fallback = defaultCities.find(city => city.label === Intl.DateTimeFormat().resolvedOptions().timeZone?.includes('New_York') ? 'New York' : null) || defaultCities[0];
+            await loadWeatherForCoordinates(fallback.lat, fallback.lon, fallback.label);
+        }
+
+        async function fetchWeather() {
+            const tempEl = document.getElementById('weather-temp');
+            const descEl = document.getElementById('weather-desc');
+            if (!tempEl || !descEl) return;
+
+            tempEl.textContent = '--°C';
+            descEl.textContent = 'Locating...';
+
+            if (!navigator.geolocation) {
+                await loadFallbackWeather();
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const { latitude, longitude } = position.coords;
+                await loadWeatherForCoordinates(latitude, longitude, 'Live conditions');
+            }, async () => {
+                await loadFallbackWeather();
+            }, {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 300000
+            });
+        }
+
+        const weatherRefreshBtn = document.getElementById('weather-refresh-btn');
+        if (weatherRefreshBtn) {
+            weatherRefreshBtn.addEventListener('click', fetchWeather);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+            if (e.code === 'Space'
+                && (document.body.dataset.page === 'focus' || document.body.classList.contains('study-mode-active'))
+                && !e.target.closest('button, a, select, [contenteditable="true"]')
+                && !e.repeat) {
+                e.preventDefault();
+                togglePomo();
+            }
+            if (e.key.toLowerCase() === 'z') toggleZen();
+            if (e.key.toLowerCase() === 'd') toggleStudyMode();
+        });
+
+        const appPages = new Set(['clock', 'focus', 'timer', 'weather', 'world', 'tasks']);
+        const pageTabs = document.querySelectorAll('#page-nav .page-tab');
+
+        function applyPageFromHash() {
+            const requestedPage = window.location.hash.slice(1).toLowerCase();
+            const activePage = appPages.has(requestedPage) ? requestedPage : 'clock';
+            document.body.dataset.page = activePage;
+
+            const mainContent = document.querySelector('main');
+            mainContent.classList.remove('page-enter');
+            void mainContent.offsetWidth;
+            mainContent.classList.add('page-enter');
+
+            pageTabs.forEach((tab) => {
+                const isActive = tab.dataset.page === activePage;
+                tab.classList.toggle('active', isActive);
+                if (isActive) tab.setAttribute('aria-current', 'page');
+                else tab.removeAttribute('aria-current');
+            });
+        }
+
+        window.addEventListener('hashchange', applyPageFromHash);
+        window.addEventListener('popstate', applyPageFromHash);
+        applyPageFromHash();
+
+        window.addEventListener('DOMContentLoaded', () => {
+            updateClock();
+            updateWorldClock();
+            setTimerMode('focus', 25);
+            fetchWeather();
+            refreshIcons();
+            renderTodos();
+            setInterval(() => {
+                updateClock();
+                updateWorldClock();
+            }, 1000);
+
+            const appLoader = document.getElementById('app-loader');
+            if (appLoader) {
+                window.setTimeout(() => {
+                    appLoader.classList.add('is-hidden');
+                    window.setTimeout(() => {
+                        appLoader.remove();
+                    }, 450);
+                }, 3000);
+            }
+        });
+    </script>
+</body>
 </html>
