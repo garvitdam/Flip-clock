@@ -1,0 +1,344 @@
+let isSoundEnabled = false;
+let is12Hour = false;
+let showSeconds = true;
+
+// Initialize Lucide Icons
+lucide.createIcons();
+
+const lockScreenStyles = document.createElement('style');
+lockScreenStyles.textContent = `
+    #lock-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 2rem;
+        cursor: pointer;
+        user-select: none;
+        backdrop-filter: blur(35px);
+        -webkit-backdrop-filter: blur(35px);
+        background: rgba(10, 10, 10, 0.85);
+        transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+    }
+
+    #lock-screen.unlocked {
+        transform: translateY(-100%);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    @keyframes pulseRing {
+        0% { transform: scale(0.95); opacity: 0.8; }
+        50% { transform: scale(1.05); opacity: 0.4; }
+        100% { transform: scale(0.95); opacity: 0.8; }
+    }
+
+    .lock-pulse {
+        animation: pulseRing 3s ease-in-out infinite;
+    }
+`;
+document.head.appendChild(lockScreenStyles);
+
+// Audio Click Generator
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// Lock Screen Controls
+let isLocked = false;
+const lockScreen = document.getElementById('lock-screen');
+const lockClockDisplay = document.getElementById('lock-clock-display');
+const lockDateDisplay = document.getElementById('lock-date-display');
+const lockStatusText = document.getElementById('lock-status-text');
+const lockBtn = document.getElementById('lock-btn');
+
+function updateLockScreenTime() {
+    if (!lockClockDisplay || !lockDateDisplay) return;
+
+    const now = new Date();
+    const timeOptions = {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    };
+
+    lockClockDisplay.textContent = new Intl.DateTimeFormat('en-US', timeOptions).format(now);
+    lockDateDisplay.textContent = now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+}
+
+function unlockScreen() {
+    if (!lockScreen || !isLocked) return;
+    isLocked = false;
+    lockScreen.classList.add('unlocked');
+    if (lockStatusText) lockStatusText.textContent = 'Unlocked';
+    playClickSound();
+}
+
+function lockApp() {
+    if (!lockScreen) return;
+    isLocked = true;
+    lockScreen.classList.remove('unlocked');
+    if (lockStatusText) lockStatusText.textContent = 'Locked';
+    updateLockScreenTime();
+    playClickSound();
+}
+
+if (lockScreen) {
+    lockScreen.addEventListener('click', unlockScreen);
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Tab') {
+            unlockScreen();
+        }
+    });
+}
+
+if (lockBtn) {
+    lockBtn.addEventListener('click', lockApp);
+}
+
+function playClickSound() {
+    if (!isSoundEnabled) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, now);
+    osc.frequency.exponentialRampToValueAtTime(200, now + 0.02);
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.02);
+}
+
+// Animate Minimal Digit Updates
+function updateDigit(elemId, newValue) {
+    const elem = document.getElementById(elemId);
+    if (elem.textContent === newValue) return;
+
+    elem.classList.add('changing');
+    playClickSound();
+
+    setTimeout(() => {
+        elem.textContent = newValue;
+        elem.classList.remove('changing');
+    }, 150);
+}
+
+// Clock Loop
+function updateClock() {
+    const now = new Date();
+    let hours = now.getHours();
+    let ampm = '';
+
+    if (is12Hour) {
+        ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        document.getElementById('ampm-display').textContent = ampm;
+        document.getElementById('ampm-display').classList.remove('hidden');
+    } else {
+        document.getElementById('ampm-display').classList.add('hidden');
+    }
+
+    const hStr = String(hours).padStart(2, '0');
+    const mStr = String(now.getMinutes()).padStart(2, '0');
+    const sStr = String(now.getSeconds()).padStart(2, '0');
+
+    updateDigit('hours-display', hStr);
+    updateDigit('minutes-display', mStr);
+    updateDigit('seconds-display', sStr);
+
+    const options = { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' };
+    document.getElementById('date-display').textContent = now.toLocaleDateString('en-US', options);
+    updateLockScreenTime();
+
+    updateWorldClock(now);
+}
+
+// World Clock Engine
+function updateWorldClock(now) {
+    const formatTime = (timeZone) => {
+        return new Intl.DateTimeFormat('en-US', {
+            timeZone,
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: is12Hour
+        }).format(now);
+    };
+
+    document.getElementById('world-nyc').textContent = formatTime('America/New_York');
+    document.getElementById('world-lon').textContent = formatTime('Europe/London');
+    document.getElementById('world-tyo').textContent = formatTime('Asia/Tokyo');
+    document.getElementById('world-syd').textContent = formatTime('Australia/Sydney');
+}
+
+// Pomodoro Widget Engine
+let pomoTime = 25 * 60;
+let pomoTimer = null;
+let isPomoRunning = false;
+
+const pomoDisplay = document.getElementById('pomo-display');
+const pomoStartBtn = document.getElementById('pomo-start-btn');
+const pomoResetBtn = document.getElementById('pomo-reset-btn');
+const pomoStatus = document.getElementById('pomo-status');
+
+function renderPomoTime() {
+    const m = String(Math.floor(pomoTime / 60)).padStart(2, '0');
+    const s = String(pomoTime % 60).padStart(2, '0');
+    pomoDisplay.textContent = `${m}:${s}`;
+}
+
+pomoStartBtn.addEventListener('click', () => {
+    if (isPomoRunning) {
+        clearInterval(pomoTimer);
+        isPomoRunning = false;
+        pomoStartBtn.textContent = 'Start';
+        pomoStatus.textContent = 'Paused';
+    } else {
+        isPomoRunning = true;
+        pomoStartBtn.textContent = 'Pause';
+        pomoStatus.textContent = 'Focusing';
+        pomoTimer = setInterval(() => {
+            if (pomoTime > 0) {
+                pomoTime--;
+                renderPomoTime();
+            } else {
+                clearInterval(pomoTimer);
+                isPomoRunning = false;
+                pomoStatus.textContent = 'Done!';
+                pomoStartBtn.textContent = 'Start';
+            }
+        }, 1000);
+    }
+});
+
+pomoResetBtn.addEventListener('click', () => {
+    clearInterval(pomoTimer);
+    isPomoRunning = false;
+    pomoTime = 25 * 60;
+    renderPomoTime();
+    pomoStartBtn.textContent = 'Start';
+    pomoStatus.textContent = 'Ready';
+});
+
+// Quotes Widget Engine
+const quotes = [
+    { text: '"Simplicity is prerequisite for reliability."', author: '— Edsger Dijkstra' },
+    { text: '"Make it work, make it right, make it fast."', author: '— Kent Beck' },
+    { text: '"Focus on being productive instead of busy."', author: '— Tim Ferriss' },
+    { text: '"Time is what we want most, but what we use worst."', author: '— William Penn' }
+];
+let quoteIdx = 0;
+
+document.getElementById('next-quote-btn').addEventListener('click', () => {
+    quoteIdx = (quoteIdx + 1) % quotes.length;
+    document.getElementById('quote-text').textContent = quotes[quoteIdx].text;
+    document.getElementById('quote-author').textContent = quotes[quoteIdx].author;
+});
+
+// Settings Modal Controls
+const settingsModal = document.getElementById('settings-modal');
+const settingsModalBox = document.getElementById('settings-modal-box');
+const settingsBtn = document.getElementById('settings-btn');
+const closeSettingsModalBtn = document.getElementById('close-settings-modal');
+const lockMenuBtn = document.getElementById('lock-menu-btn');
+
+document.getElementById('format-toggle').addEventListener('change', (e) => {
+    is12Hour = e.target.checked;
+    updateClock();
+});
+
+document.getElementById('seconds-toggle').addEventListener('change', (e) => {
+    showSeconds = e.target.checked;
+    document.getElementById('seconds-group').style.display = showSeconds ? 'flex' : 'none';
+});
+
+// Widget Toggles
+document.getElementById('widget-pomo-toggle').addEventListener('change', (e) => {
+    document.getElementById('widget-pomodoro').style.display = e.target.checked ? 'flex' : 'none';
+});
+document.getElementById('widget-world-toggle').addEventListener('change', (e) => {
+    document.getElementById('widget-world').style.display = e.target.checked ? 'flex' : 'none';
+});
+document.getElementById('widget-quote-toggle').addEventListener('change', (e) => {
+    document.getElementById('widget-quote').style.display = e.target.checked ? 'flex' : 'none';
+});
+
+// Theme Pickers
+const pickerBg = document.getElementById('picker-bg');
+const pickerCard = document.getElementById('picker-card');
+const pickerText = document.getElementById('picker-text');
+
+pickerBg.addEventListener('input', (e) => document.documentElement.style.setProperty('--bg-base', e.target.value));
+pickerCard.addEventListener('input', (e) => document.documentElement.style.setProperty('--card-bg', e.target.value));
+pickerText.addEventListener('input', (e) => document.documentElement.style.setProperty('--text-color', e.target.value));
+
+settingsBtn.addEventListener('click', () => {
+    settingsModal.classList.remove('hidden');
+    settingsModal.classList.add('flex');
+    setTimeout(() => {
+        settingsModal.classList.remove('opacity-0');
+        settingsModalBox.classList.remove('scale-95');
+        settingsModalBox.classList.add('scale-100');
+    }, 10);
+});
+
+closeSettingsModalBtn.addEventListener('click', () => {
+    settingsModal.classList.add('opacity-0');
+    settingsModalBox.classList.remove('scale-100');
+    settingsModalBox.classList.add('scale-95');
+    setTimeout(() => {
+        settingsModal.classList.add('hidden');
+        settingsModal.classList.remove('flex');
+    }, 300);
+});
+
+if (lockMenuBtn) {
+    lockMenuBtn.addEventListener('click', () => {
+        lockApp();
+        settingsModal.classList.add('opacity-0');
+        settingsModalBox.classList.remove('scale-100');
+        settingsModalBox.classList.add('scale-95');
+        setTimeout(() => {
+            settingsModal.classList.add('hidden');
+            settingsModal.classList.remove('flex');
+        }, 300);
+    });
+}
+
+// Sound Toggle
+const soundBtn = document.getElementById('sound-btn');
+const soundIcon = document.getElementById('sound-icon');
+soundBtn.addEventListener('click', () => {
+    isSoundEnabled = !isSoundEnabled;
+    if (isSoundEnabled) {
+        soundIcon.setAttribute('data-lucide', 'volume-2');
+        soundIcon.classList.remove('opacity-70');
+    } else {
+        soundIcon.setAttribute('data-lucide', 'volume-x');
+        soundIcon.classList.add('opacity-70');
+    }
+    lucide.createIcons();
+});
+
+// Fullscreen Toggle
+document.getElementById('fullscreen-btn').addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+    }
+});
+
+// Start Clock
+setInterval(updateClock, 1000);
+updateClock();

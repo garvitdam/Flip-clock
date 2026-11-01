@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal Clock & Modes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg-base: #0a0a0a;
+            --card-bg: rgba(255,255,255,0.03);
+            --text-color: #f5f5f5;
+            --muted: rgba(255,255,255,0.65);
+            --border: rgba(255,255,255,0.08);
+            --soft: rgba(255,255,255,0.05);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at top, rgba(255,255,255,0.04), transparent 30%), var(--bg-base);
+            color: var(--text-color);
+        }
+
+        .clock-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .app {
+            max-width: 980px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .shell {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 24px;
+            backdrop-filter: blur(16px);
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            gap: 12px;
+        }
+
+        .brand {
+            font-size: 11px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            opacity: 0.9;
+        }
+
+        .mode-tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+            color: var(--text-color);
+            border-radius: 999px;
+            padding: 8px 14px;
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        .mode-btn.active {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.18);
+        }
+
+        .section {
+            display: none;
+            min-height: 430px;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .panel {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            padding: 20px;
+        }
+
+        .date {
+            color: var(--muted);
+            font-size: 12px;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .time-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .flip-clock {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .flip-digit {
+            position: relative;
+            width: clamp(62px, 7vw, 96px);
+            height: clamp(82px, 10vw, 122px);
+            perspective: 1200px;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+
+        .digit-face {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
+            color: rgba(255,255,255,0.96);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(2.2rem, 5vw, 4.7rem);
+            font-weight: 300;
+            line-height: 1;
+            letter-spacing: -0.08em;
+            text-shadow: 0 0 12px rgba(255,255,255,0.08);
+        }
+
+        .digit-face.top {
+            top: 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transform-origin: bottom center;
+            z-index: 2;
+        }
+
+        .digit-face.bottom {
+            bottom: 0;
+            top: auto;
+            transform-origin: top center;
+            z-index: 1;
+            background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.03));
+        }
+
+        .flip-digit.flipping .digit-face.top {
+            animation: flipTop 0.42s ease-in forwards;
+        }
+
+        .flip-digit.flipping .digit-face.bottom {
+            animation: flipBottom 0.42s ease-out forwards;
+        }
+
+        @keyframes flipTop {
+            0% { transform: rotateX(0deg); }
+            100% { transform: rotateX(-90deg); opacity: 0.7; }
+        }
+
+        @keyframes flipBottom {
+            0% { transform: rotateX(90deg); opacity: 0.3; }
+            100% { transform: rotateX(0deg); opacity: 1; }
+        }
+
+        .time-separator {
+            font-size: clamp(1.8rem, 4vw, 3.2rem);
+            color: rgba(255,255,255,0.75);
+            opacity: 0.8;
+            transform: translateY(-6px);
+            font-weight: 300;
+        }
+
+        .status-pill {
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            font-size: 10px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(220px, 1fr));
+            gap: 18px;
+        }
+
+        .mini-box {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px;
+        }
+
+        .label {
+            color: var(--muted);
+            font-size: 11px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .big {
+            font-size: clamp(1.8rem, 3vw, 3rem);
+            font-weight: 300;
+        }
+
+        .city-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(120px, 1fr));
+            gap: 12px;
+        }
+
+        .city {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 12px;
+        }
+
+        .city-name {
+            color: var(--muted);
+            font-size: 10px;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        .city-time {
+            font-size: 1.5rem;
+            margin-top: 6px;
+        }
+
+        .focus-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 240px;
+            font-size: clamp(2.4rem, 5vw, 5rem);
+            letter-spacing: -0.08em;
+            font-weight: 300;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            color: var(--text-color);
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        @media (max-width: 700px) {
+            .grid-2, .city-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="shell">
+            <div class="topbar">
+                <div class="brand">Minimal <span style="opacity:0.6">Clock</span></div>
+                <div class="mode-tabs">
+                    <button class="mode-btn active" data-mode="clock">Clock</button>
+                    <button class="mode-btn" data-mode="weather">Weather</button>
+                    <button class="mode-btn" data-mode="focus">Focus</button>
+                    <button class="mode-btn" data-mode="world">World</button>
+                </div>
+            </div>
+
+            <section id="clock" class="section active">
+                <div class="panel">
+                    <div id="date-display" class="date">Monday, Aug 31 2026</div>
+                    <div class="time-row">
+                        <div class="flip-clock" aria-live="polite">
+                            <div class="flip-digit" id="hours-flip" data-value="09">
+                                <div class="digit-face top">09</div>
+                                <div class="digit-face bottom">09</div>
+                            </div>
+                            <div class="time-separator">:</div>
+                            <div class="flip-digit" id="minutes-flip" data-value="41">
+                                <div class="digit-face top">41</div>
+                                <div class="digit-face bottom">41</div>
+                            </div>
+                        </div>
+                        <span id="ampm-display" class="status-pill">AM</span>
+                    </div>
+                </div>
+            </section>
+
+            <section id="weather" class="section">
+                <div class="grid-2">
+                    <div class="panel">
+                        <div class="label">Current</div>
+                        <div class="big clock-font" id="weather-temp">24°C</div>
+                        <div class="status-pill" style="margin-top:12px; display:inline-block;" id="weather-desc">Clear Sky</div>
+                    </div>
+                    <div class="panel">
+                        <div class="label">Air & Wind</div>
+                        <div class="big clock-font" id="weather-aqi">36</div>
+                        <div style="margin-top:8px; opacity:0.8;">AQI</div>
+                        <div style="margin-top:12px; opacity:0.7;">Wind: <span id="weather-wind">10 km/h</span></div>
+                        <div style="opacity:0.7;">Humidity: <span id="weather-hum">58%</span></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="focus" class="section">
+                <div class="panel">
+                    <div class="label">Focus Timer</div>
+                    <div class="focus-box clock-font" id="pomo-display">25:00</div>
+                    <div class="actions">
+                        <button id="pomo-start-btn" class="action-btn">Start</button>
+                        <button id="pomo-reset-btn" class="action-btn">Reset</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="world" class="section">
+                <div class="panel">
+                    <div class="label">World Time</div>
+                    <div class="city-grid">
+                        <div class="city">
+                            <div class="city-name">New York</div>
+                            <div class="city-time clock-font" id="world-nyc">--:--</div>
+                        </div>
+                        <div class="city">
+                            <div class="city-name">London</div>
+                            <div class="city-time clock-font" id="world-lon">--:--</div>
+                        </div>
+                        <div class="city">
+                            <div class="city-name">Tokyo</div>
+                            <div class="city-time clock-font" id="world-tyo">--:--</div>
+                        </div>
+                        <div class="city">
+                            <div class="city-name">Sydney</div>
+                            <div class="city-time clock-font" id="world-syd">--:--</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        const buttons = document.querySelectorAll('.mode-btn');
+        const sections = document.querySelectorAll('.section');
+
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                buttons.forEach(b => b.classList.remove('active'));
+                sections.forEach(s => s.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.mode).classList.add('active');
+            });
+        });
+
+        let use12Hour = false;
+
+        function setFlipDigit(elementId, nextValue) {
+            const flip = document.getElementById(elementId);
+            const currentValue = flip.dataset.value || nextValue;
+
+            if (currentValue === nextValue) return;
+
+            const top = flip.querySelector('.digit-face.top');
+            const bottom = flip.querySelector('.digit-face.bottom');
+
+            top.textContent = currentValue;
+            bottom.textContent = nextValue;
+            flip.classList.remove('flipping');
+            void flip.offsetWidth;
+            flip.classList.add('flipping');
+
+            setTimeout(() => {
+                top.textContent = nextValue;
+                bottom.textContent = nextValue;
+                flip.dataset.value = nextValue;
+                flip.classList.remove('flipping');
+            }, 420);
+        }
+
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            let suffix = 'AM';
+
+            if (use12Hour) {
+                suffix = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12 || 12;
+            }
+
+            const h = String(hours).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+
+            setFlipDigit('hours-flip', h);
+            setFlipDigit('minutes-flip', m);
+            document.getElementById('ampm-display').textContent = use12Hour ? suffix : '24H';
+            document.getElementById('date-display').textContent = now.toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+
+            updateWorldTime(now);
+        }
+
+        function updateWorldTime(now) {
+            const formatTime = (zone) => new Intl.DateTimeFormat('en-US', {
+                timeZone: zone,
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: use12Hour
+            }).format(now);
+
+            document.getElementById('world-nyc').textContent = formatTime('America/New_York');
+            document.getElementById('world-lon').textContent = formatTime('Europe/London');
+            document.getElementById('world-tyo').textContent = formatTime('Asia/Tokyo');
+            document.getElementById('world-syd').textContent = formatTime('Australia/Sydney');
+        }
+
+        async function loadWeather() {
+            if (!navigator.geolocation) {
+                document.getElementById('weather-desc').textContent = 'Location blocked';
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+
+                try {
+                    const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relativehumidity_2m`);
+                    const weatherData = await weatherRes.json();
+                    const temp = Math.round(weatherData.current_weather.temperature);
+                    const wind = weatherData.current_weather.windspeed;
+                    const humidity = weatherData.hourly.relativehumidity_2m[0];
+
+                    const aqiRes = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi`);
+                    const aqiData = await aqiRes.json();
+                    const aqi = aqiData.current ? aqiData.current.european_aqi : 0;
+
+                    document.getElementById('weather-temp').textContent = `${temp}°C`;
+                    document.getElementById('weather-desc').textContent = 'Clear Sky';
+                    document.getElementById('weather-wind').textContent = `${wind} km/h`;
+                    document.getElementById('weather-hum').textContent = `${humidity}%`;
+                    document.getElementById('weather-aqi').textContent = aqi;
+                } catch (err) {
+                    document.getElementById('weather-desc').textContent = 'Unavailable';
+                }
+            }, () => {
+                document.getElementById('weather-desc').textContent = 'Permission denied';
+            });
+        }
+
+        let pomoSeconds = 25 * 60;
+        let pomoTimer = null;
+        let pomoRunning = false;
+
+        function renderPomo() {
+            const m = String(Math.floor(pomoSeconds / 60)).padStart(2, '0');
+            const s = String(pomoSeconds % 60).padStart(2, '0');
+            document.getElementById('pomo-display').textContent = `${m}:${s}`;
+        }
+
+        function togglePomo() {
+            if (pomoRunning) {
+                clearInterval(pomoTimer);
+                pomoRunning = false;
+                document.getElementById('pomo-start-btn').textContent = 'Start';
+                return;
+            }
+
+            pomoRunning = true;
+            document.getElementById('pomo-start-btn').textContent = 'Pause';
+            pomoTimer = setInterval(() => {
+                if (pomoSeconds > 0) {
+                    pomoSeconds--;
+                    renderPomo();
+                } else {
+                    clearInterval(pomoTimer);
+                    pomoRunning = false;
+                    document.getElementById('pomo-start-btn').textContent = 'Start';
+                }
+            }, 1000);
+        }
+
+        document.getElementById('pomo-start-btn').addEventListener('click', togglePomo);
+        document.getElementById('pomo-reset-btn').addEventListener('click', () => {
+            clearInterval(pomoTimer);
+            pomoRunning = false;
+            pomoSeconds = 25 * 60;
+            renderPomo();
+            document.getElementById('pomo-start-btn').textContent = 'Start';
+        });
+
+        setInterval(updateClock, 1000);
+        updateClock();
+        renderPomo();
+        loadWeather();
+    </script>
+</body>
+</html>

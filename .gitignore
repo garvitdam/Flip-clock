@@ -1,34 +1,21 @@
-# Gradle files
-.gradle/
-build/
+# Python runtime and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
 
-# Local configuration file (sdk path, etc)
-local.properties
+# Local TLS certificates and private keys
+*.pem
 
-# Log/OS Files
-*.log
+# Local development drafts that are not part of the Flask app
+gemini-code-*.html
+gemini-code-*.css
+gemini-code-*.js
 
-# Android Studio generated files and folders
-captures/
-.externalNativeBuild/
-.cxx/
-*.aab
-*.apk
-output-metadata.json
-
-# IntelliJ
-*.iml
-.idea/
-misc.xml
-deploymentTargetDropDown.xml
-render.experimental.xml
-
-# Keystore files
-*.jks
-*.keystore
-
-# Google Services (e.g. APIs or Firebase)
-google-services.json
-
-# Android Profiling
-*.hprof
+# Older standalone prototypes are not served by the Flask app
+/index.html
+/script.js
+/styles.css
+/static/

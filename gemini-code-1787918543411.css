@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
+
+/* CSS Variables for Dynamic Theme Customization */
+:root {
+    --bg-base: #0a0a0a;
+    --card-bg: #141414;
+    --text-color: #f5f5f5;
+    --accent-color: #a3a3a3;
+    --border-color: rgba(255, 255, 255, 0.08);
+    --glass-bg: rgba(20, 20, 20, 0.6);
+}
+
+/* Base Body Styles */
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: var(--bg-base);
+    color: var(--text-color);
+    user-select: none;
+    -webkit-user-select: none;
+    overflow-x: hidden;
+    transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* Clock Font Family Class */
+.clock-font {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Minimal Card Container */
+.min-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    transition: border-color 0.3s ease, background-color 0.3s ease, transform 0.2s ease;
+}
+
+.min-card:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Glassmorphic Navigation Elements */
+.glass-nav {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+}
+
+/* Utility Dynamic Colors */
+.accent-text { 
+    color: var(--accent-color); 
+}
+
+.accent-bg { 
+    background-color: var(--accent-color); 
+}
+
+/* Minimal Colon Pulse Animation */
+@keyframes subtlePulse {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 0.2; }
+}
+
+.colon-dot {
+    animation: subtlePulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    background-color: var(--text-color);
+}
+
+/* Digit Flip & Changing Transitions */
+.digit-flip {
+    transition: transform 0.15s ease-out, opacity 0.15s ease-out;
+}
+
+.digit-flip.changing {
+    transform: translateY(-8px);
+    opacity: 0.3;
+}

@@ -1,0 +1,54 @@
+Attached Element Context from Integrated Browser
+
+Element: span#hours-display.text-5xl.sm:text-8xl.font-extralight.tracking-tight
+
+URL: https://127.0.0.1:5000/
+
+HTML Path: main.flex-1.flex.flex-col.justify-center.items-center.w-full.z-10.max-w-6xl.mx-auto.relative.my-auto > div#clock-display-stage.flex.items-center.justify-center.gap-3.sm:gap-6.clock-font.mb-10 > div.modern-card.w-24.h-32.sm:w-44.sm:h-56.rounded-[2rem].flex.items-center.justify-center.shadow-2xl.relative > span#hours-display.text-5xl.sm:text-8xl.font-extralight.tracking-tight
+
+Outer HTML:
+```html
+<span id="hours-display" class="text-5xl sm:text-8xl font-extralight tracking-tight">21</span>
+```
+
+Dimensions:
+- top: 171px
+- left: 140px
+- width: 55px
+- height: 48px
+
+CSS:
+```css
+*, ::before, ::after { --tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }
+*, ::after, ::before { box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb }
+.text-5xl { font-size:3rem;line-height:1 }
+.font-extralight { font-weight:200 }
+.tracking-tight { letter-spacing:-0.025em }
+
+/* Pseudo-elements */
+::after, ::before { --tw-content:'' }
+
+/* Inherited */
+.clock-font { font-family: 'JetBrains Mono', monospace }
+body { font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text-color) }
+body { line-height:inherit }
+:host, html { line-height:1.5; tab-size:4; font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; font-feature-settings:normal }
+
+/* Resolved values */
+border: 0px solid rgb(229, 231, 235);
+box-sizing: border-box;
+color: rgb(248, 250, 252);
+display: block;
+font-family: "JetBrains Mono", monospace;
+font-feature-settings: normal;
+font-size: 48px;
+font-weight: 200;
+height: 48px;
+letter-spacing: -1.2px;
+line-height: 48px;
+tab-size: 4;
+width: 55.2083px;
+
+/* CSS variables */
+--text-color: #f8fafc;
+```

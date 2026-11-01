@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minimal Clock & Custom Widgets</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg-base: #08080a;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-hover: rgba(255, 255, 255, 0.06);
+            --text-color: #f8fafc;
+            --accent-color: #94a3b8;
+            --border-color: rgba(255, 255, 255, 0.12);
+            --border-hover: rgba(255, 255, 255, 0.2);
+            --glass-bg: rgba(15, 15, 20, 0.65);
+            --spring-transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at top, rgba(148, 163, 184, 0.18), transparent 30%), var(--bg-base);
+            color: var(--text-color);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: filter 0.25s ease, opacity 0.25s ease;
+        }
+
+        body.study-mode {
+            filter: saturate(0.8) contrast(1.08);
+        }
+
+        body.study-mode .widget,
+        body.study-mode .header-actions > :not(.study-mode-pill),
+        body.study-mode #settings-btn,
+        body.study-mode #sound-btn,
+        body.study-mode #fullscreen-btn {
+            opacity: 0.2;
+            pointer-events: none;
+        }
+
+        .app {
+            width: min(900px, calc(100vw - 32px));
+            padding: 28px;
+            border: 1px solid var(--border-color);
+            border-radius: 28px;
+            background: rgba(255, 255, 255, 0.02);
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(16px);
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-size: 11px;
+            opacity: 0.85;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: #9ae6b4;
+            box-shadow: 0 0 14px rgba(154, 230, 180, 0.9);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chip,
+        .icon-btn,
+        .toggle-row button {
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-color);
+            border-radius: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .chip {
+            padding: 8px 12px;
+            font-size: 11px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+
+        .icon-btn {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+        }
+
+        .icon-btn:hover,
+        .chip:hover,
+        .toggle-row button:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .main {
+            display: grid;
+            grid-template-columns: 1.4fr 0.8fr;
+            gap: 24px;
+        }
+
+        .clock-panel,
+        .widget {
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            background: var(--card-bg);
+            padding: 24px;
+        }
+
+        .clock-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 300px;
+        }
+
+        .date {
+            font-size: 12px;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            opacity: 0.7;
+            margin-bottom: 12px;
+        }
+
+        .time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(3rem, 8vw, 7rem);
+            font-weight: 300;
+            letter-spacing: -0.06em;
+            line-height: 0.9;
+        }
+
+        .secondary-line {
+            margin-top: 18px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 11px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            opacity: 0.7;
+        }
+
+        .widgets {
+            display: grid;
+            gap: 18px;
+        }
+
+        .widget h3 {
+            margin: 0 0 12px;
+            font-size: 11px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            opacity: 0.7;
+        }
+
+        .widget-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2rem;
+            font-weight: 500;
+        }
+
+        .settings-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(8px);
+            z-index: 50;
+        }
+
+        .settings-modal.open {
+            display: flex;
+        }
+
+        .settings-card {
+            width: min(420px, calc(100vw - 28px));
+            background: rgba(15, 17, 20, 0.92);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+            padding: 18px 18px 14px;
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .settings-header h2 {
+            font-size: 12px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            margin: 0;
+            opacity: 0.8;
+        }
+
+        .toggle-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: rgba(255,255,255,0.8);
+            font-size: 14px;
+        }
+
+        .switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            display: inline-block;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            inset: 0;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.12);
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .slider::before {
+            content: "";
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            left: 4px;
+            top: 3px;
+            border-radius: 50%;
+            background: white;
+            transition: all 0.2s ease;
+        }
+
+        .switch input:checked + .slider {
+            background: rgba(148, 163, 184, 0.5);
+        }
+
+        .switch input:checked + .slider::before {
+            transform: translateX(20px);
+        }
+
+        .study-mode-pill {
+            background: rgba(148, 163, 184, 0.18);
+        }
+
+        @media (max-width: 760px) {
+            .main {
+                grid-template-columns: 1fr;
+            }
+
+            .app {
+                padding: 18px;
+            }
+
+            .header {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="brand">
+                <span class="dot"></span>
+                <span>Minimal Clock</span>
+            </div>
+            <div class="header-actions">
+                <button class="chip study-mode-pill" id="study-mode-indicator">Study Mode Off</button>
+                <button class="icon-btn" id="settings-btn" aria-label="Open settings" title="Settings">⚙</button>
+            </div>
+        </header>
+
+        <main class="main">
+            <section class="clock-panel">
+                <div class="date" id="date-display">Monday, Aug 31 2026</div>
+                <div class="time" id="time-display">09:41</div>
+                <div class="secondary-line">
+                    <span id="ampm">AM</span>
+                    <span>Focus</span>
+                    <span>Deep Work</span>
+                </div>
+            </section>
+
+            <aside class="widgets">
+                <div class="widget">
+                    <h3>Focus</h3>
+                    <div class="widget-value" id="focus-value">25:00</div>
+                </div>
+                <div class="widget">
+                    <h3>Weather</h3>
+                    <div class="widget-value" id="weather-value">24°</div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <div class="settings-modal" id="settings-modal">
+        <div class="settings-card">
+            <div class="settings-header">
+                <h2>Preferences</h2>
+                <button class="icon-btn" id="close-settings" aria-label="Close settings" title="Close">✕</button>
+            </div>
+
+            <div class="toggle-list">
+                <div class="toggle-row">
+                    <span>12-Hour Format</span>
+                    <label class="switch">
+                        <input type="checkbox" id="format-toggle" />
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-row">
+                    <span>Study Mode</span>
+                    <label class="switch">
+                        <input type="checkbox" id="study-mode-toggle" />
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const settingsModal = document.getElementById('settings-modal');
+        const settingsBtn = document.getElementById('settings-btn');
+        const closeSettings = document.getElementById('close-settings');
+        const studyModeToggle = document.getElementById('study-mode-toggle');
+        const studyModeIndicator = document.getElementById('study-mode-indicator');
+        const formatToggle = document.getElementById('format-toggle');
+        const timeDisplay = document.getElementById('time-display');
+        const ampm = document.getElementById('ampm');
+        const dateDisplay = document.getElementById('date-display');
+
+        let use12Hour = false;
+
+        function updateStudyMode() {
+            const studyMode = studyModeToggle.checked;
+            document.body.classList.toggle('study-mode', studyMode);
+            studyModeIndicator.textContent = studyMode ? 'Study Mode On' : 'Study Mode Off';
+        }
+
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+
+            if (use12Hour) {
+                const suffix = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12 || 12;
+                ampm.textContent = suffix;
+            } else {
+                ampm.textContent = '24H';
+            }
+
+            timeDisplay.textContent = `${String(hours).padStart(2, '0')}:${minutes}`;
+            dateDisplay.textContent = now.toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+
+        settingsBtn.addEventListener('click', () => settingsModal.classList.add('open'));
+        closeSettings.addEventListener('click', () => settingsModal.classList.remove('open'));
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) settingsModal.classList.remove('open');
+        });
+
+        formatToggle.addEventListener('change', (e) => {
+            use12Hour = e.target.checked;
+            updateClock();
+        });
+
+        studyModeToggle.addEventListener('change', updateStudyMode);
+
+        updateClock();
+        setInterval(updateClock, 1000);
+    </script>
+</body>
+</html>

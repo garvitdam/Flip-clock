@@ -1,0 +1,887 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dam Clock</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@200;300;400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg-base: #070709;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-hover: rgba(255, 255, 255, 0.06);
+            --text-color: #f8fafc;
+            --accent-glow: rgba(99, 102, 241, 0.15);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.2);
+            --glass-bg: rgba(18, 18, 24, 0.7);
+            --accent-color: #6366f1;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at 50% -20%, rgba(23, 24, 37, 0.9), rgba(7, 7, 9, 1) 65%);
+            background-attachment: fixed;
+            color: var(--text-color);
+            user-select: none;
+            overflow-x: hidden;
+            margin: 0;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+            transition: background 0.35s ease;
+        }
+
+        #live-wallpaper-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.9;
+        }
+
+        .clock-font { font-family: 'JetBrains Mono', monospace; }
+
+        body {
+            background-image:
+                radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.12), transparent 20%),
+                radial-gradient(circle at 80% 10%, rgba(45, 212, 191, 0.08), transparent 22%),
+                radial-gradient(circle at 50% 100%, rgba(168, 85, 247, 0.06), transparent 25%),
+                radial-gradient(circle at 50% -20%, rgba(23, 24, 37, 0.9), rgba(7, 7, 9, 1) 65%);
+        }
+
+        .modern-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 12px 28px -20px rgba(0,0,0,0.85);
+        }
+
+        .modern-card:hover {
+            background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+            border-color: var(--border-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 18px 32px -22px rgba(0, 0, 0, 0.9), 0 0 20px 0 var(--accent-glow);
+        }
+
+        #clock-display-stage {
+            transition: transform 0.25s ease, filter 0.25s ease;
+        }
+
+        body.clock-style-neon #clock-display-stage .modern-card {
+            background: rgba(13, 19, 30, 0.7);
+            border-color: rgba(129, 140, 248, 0.4);
+            box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.2), 0 0 25px rgba(99, 102, 241, 0.2);
+        }
+
+        body.clock-style-neon #hours-display,
+        body.clock-style-neon #minutes-display,
+        body.clock-style-neon #seconds-display,
+        body.clock-style-neon #ampm-display {
+            color: #d8e4ff;
+            text-shadow: 0 0 12px rgba(99, 102, 241, 0.7);
+        }
+
+        body.clock-style-minimal #clock-display-stage .modern-card {
+            background: rgba(255,255,255,0.015);
+            border: 1px solid rgba(255,255,255,0.06);
+            box-shadow: none;
+        }
+
+        body.clock-style-minimal #hours-display,
+        body.clock-style-minimal #minutes-display,
+        body.clock-style-minimal #seconds-display {
+            font-weight: 300;
+            letter-spacing: 0.06em;
+        }
+
+        body.clock-style-glass #clock-display-stage .modern-card {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.12);
+        }
+
+        body.clock-style-flip #clock-display-stage .modern-card {
+            background: linear-gradient(180deg, rgba(15, 18, 26, 0.95), rgba(7,10,15,0.95));
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05), 0 25px 35px -25px rgba(0,0,0,0.9);
+        }
+
+        body.clock-style-flip #hours-display,
+        body.clock-style-flip #minutes-display,
+        body.clock-style-flip #seconds-display {
+            transform: perspective(200px) rotateX(8deg);
+        }
+
+        .glass-btn {
+            background: rgba(17, 17, 22, 0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            transition: all 0.18s ease;
+        }
+
+        .glass-btn:hover {
+            border-color: var(--border-hover);
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-1px);
+        }
+
+        .colon-dot {
+            animation: pulseGlow 2.2s ease-in-out infinite;
+            background-color: var(--text-color);
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.85; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(0.96); }
+        }
+
+        .todo-scroll::-webkit-scrollbar, .modal-scroll::-webkit-scrollbar { width: 4px; }
+        .todo-scroll::-webkit-scrollbar-thumb, .modal-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 9999px;
+        }
+
+        .zen-hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        #study-mode-panel {
+            display: none;
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto 2rem;
+        }
+
+        body.study-mode-active #study-mode-panel {
+            display: block;
+        }
+
+        body.study-mode-active #widgets-container {
+            display: none;
+        }
+
+        .study-mode-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.8);
+        }
+
+        .timer-btn-active {
+            background: rgba(255, 255, 255, 0.9) !important;
+            color: #000 !important;
+            font-weight: 600;
+        }
+
+        .mini-control {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 0.8rem;
+            padding: 0.65rem 0.8rem;
+            color: rgba(255,255,255,0.9);
+            font-size: 0.7rem;
+            outline: none;
+        }
+
+        .mini-control:focus {
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative p-4 sm:p-8">
+    <canvas id="live-wallpaper-canvas"></canvas>
+
+    <header id="main-header" class="w-full max-w-6xl mx-auto flex justify-between items-center z-30 transition-all duration-300 mb-6 relative">
+        <div class="flex items-center gap-3">
+            <div class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></div>
+            <span class="font-bold text-xs tracking-[0.3em] uppercase opacity-90">DAM<span class="text-indigo-400">CLOCK</span></span>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+            <button id="study-mode-btn" class="px-3 py-2 rounded-2xl glass-btn flex items-center gap-2 text-xs font-medium" title="Study Mode">
+                <i data-lucide="book-open" class="w-4 h-4 opacity-70"></i>
+                <span class="hidden sm:inline">Study</span>
+            </button>
+
+            <button id="zen-btn" class="px-3 py-2 rounded-2xl glass-btn flex items-center gap-2 text-xs font-medium" title="Zen Mode (Z)">
+                <i data-lucide="eye-off" class="w-4 h-4 opacity-70"></i>
+                <span class="hidden sm:inline">Zen</span>
+            </button>
+
+            <button id="settings-btn" class="px-3 py-2 rounded-2xl glass-btn flex items-center gap-2 text-xs font-medium" title="Settings (S)">
+                <i data-lucide="settings" class="w-4 h-4 opacity-70"></i>
+                <span class="hidden sm:inline">Settings</span>
+            </button>
+
+            <button id="fullscreen-btn" class="p-2.5 rounded-2xl glass-btn" title="Fullscreen (F)">
+                <i data-lucide="maximize" class="w-4 h-4 opacity-70"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col justify-center items-center w-full z-10 max-w-6xl mx-auto relative my-auto">
+        <div id="study-mode-panel" class="mb-8">
+            <div class="study-mode-card rounded-[2rem] p-6 sm:p-8">
+                <div class="flex items-center justify-between gap-4 mb-6">
+                    <div>
+                        <p class="text-[10px] uppercase tracking-[0.28em] opacity-60 mb-2">Study Mode</p>
+                        <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight">Deep Focus Session</h2>
+                    </div>
+                    <button id="exit-study-mode-btn" class="px-3 py-2 rounded-xl glass-btn text-xs font-medium">Exit</button>
+                </div>
+
+                <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] items-center">
+                    <div class="rounded-[1.75rem] border border-white/10 bg-black/10 p-6 sm:p-8">
+                        <div class="flex items-center justify-between mb-5">
+                            <span id="study-mode-status" class="text-[10px] uppercase tracking-[0.28em] opacity-70">Focus</span>
+                            <span class="text-[10px] uppercase tracking-[0.2em] opacity-50">Session</span>
+                        </div>
+                        <div id="study-timer-display" class="clock-font text-5xl sm:text-7xl font-light tracking-tight">25:00</div>
+                        <div class="mt-6 flex gap-2">
+                            <button id="study-start-btn" class="px-5 py-2 rounded-xl bg-white text-black font-semibold text-xs">Start</button>
+                            <button id="study-reset-btn" class="px-4 py-2 rounded-xl glass-btn text-xs opacity-80">Reset</button>
+                        </div>
+                    </div>
+
+                    <div class="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 sm:p-6">
+                        <p class="text-[10px] uppercase tracking-[0.28em] opacity-60 mb-4">Today</p>
+                        <ul class="space-y-3 text-sm text-white/80">
+                            <li class="flex items-start gap-3"><span class="mt-1 h-2 w-2 rounded-full bg-indigo-400"></span><span>Finish the most important task before anything else.</span></li>
+                            <li class="flex items-start gap-3"><span class="mt-1 h-2 w-2 rounded-full bg-emerald-400"></span><span>Keep the phone away and work in one uninterrupted block.</span></li>
+                            <li class="flex items-start gap-3"><span class="mt-1 h-2 w-2 rounded-full bg-amber-400"></span><span>Take a short break when the timer ends.</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="date-display" class="mb-6 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-[11px] font-semibold tracking-[0.25em] uppercase opacity-70 transition-all duration-300">
+            Loading Date...
+        </div>
+
+        <div id="clock-display-stage" class="flex items-center justify-center gap-3 sm:gap-6 clock-font mb-10">
+            <div class="modern-card w-24 h-32 sm:w-44 sm:h-56 rounded-[2rem] flex items-center justify-center shadow-2xl relative">
+                <span id="hours-display" class="text-5xl sm:text-8xl font-extralight tracking-tight">00</span>
+                <span id="ampm-display" class="hidden absolute bottom-4 right-5 text-[10px] sm:text-xs font-bold tracking-widest opacity-50">AM</span>
+            </div>
+
+            <div class="flex flex-col gap-3 justify-center items-center px-1">
+                <div class="colon-dot w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full"></div>
+                <div class="colon-dot w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full"></div>
+            </div>
+
+            <div class="modern-card w-24 h-32 sm:w-44 sm:h-56 rounded-[2rem] flex items-center justify-center shadow-2xl">
+                <span id="minutes-display" class="text-5xl sm:text-8xl font-extralight tracking-tight">00</span>
+            </div>
+
+            <div id="seconds-group" class="flex items-center gap-3 sm:gap-6">
+                <div class="flex flex-col gap-3 justify-center items-center px-1">
+                    <div class="colon-dot w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full"></div>
+                    <div class="colon-dot w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full"></div>
+                </div>
+
+                <div class="modern-card w-24 h-32 sm:w-44 sm:h-56 rounded-[2rem] flex items-center justify-center shadow-2xl">
+                    <span id="seconds-display" class="text-5xl sm:text-8xl font-extralight tracking-tight">00</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="widgets-container" class="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 transition-all duration-300">
+            <div class="modern-card rounded-[2rem] p-6 flex flex-col justify-between space-y-3 h-52">
+                <div class="flex justify-between items-center text-xs font-semibold opacity-60 uppercase tracking-wider">
+                    <span class="flex items-center gap-2"><i data-lucide="timer" class="w-4 h-4 text-indigo-400"></i> Timer Studio</span>
+                    <span id="pomo-status" class="text-[10px] px-2 py-0.5 rounded-full bg-white/10 clock-font">FOCUS</span>
+                </div>
+
+                <div class="flex items-center gap-1.5 p-1 bg-white/5 rounded-xl border border-white/5">
+                    <button id="mode-focus" class="flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all timer-btn-active" onclick="setTimerMode('focus', 25)">25m Focus</button>
+                    <button id="mode-study" class="flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all opacity-60 hover:opacity-100" onclick="setTimerMode('study', 60)">60m Study</button>
+                    <button id="mode-break" class="flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all opacity-60 hover:opacity-100" onclick="setTimerMode('break', 5)">5m Rest</button>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="clock-font text-4xl font-light tracking-tight" id="pomo-display">25:00</div>
+                    <div class="flex gap-2">
+                        <button id="pomo-start-btn" class="px-5 py-2 rounded-xl bg-white text-black font-semibold text-xs hover:bg-slate-200 active:scale-95 transition-all">Start</button>
+                        <button id="pomo-reset-btn" class="p-2 rounded-xl glass-btn text-xs opacity-60 hover:opacity-100 active:scale-95 transition-all"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modern-card rounded-[2rem] p-6 flex flex-col justify-between space-y-3 h-52">
+                <div class="flex justify-between items-center text-xs font-semibold opacity-60 uppercase tracking-wider">
+                    <span class="flex items-center gap-2"><i data-lucide="cloud-sun" class="w-4 h-4 text-amber-400"></i> Weather</span>
+                </div>
+                <div class="flex items-center justify-between my-auto">
+                    <div>
+                        <div id="weather-temp" class="text-4xl clock-font font-light tracking-tight">--°C</div>
+                        <div id="weather-desc" class="text-xs opacity-60 mt-1">Locating...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modern-card rounded-[2rem] p-6 flex flex-col justify-between space-y-3 h-52">
+                <div class="flex justify-between items-center text-xs font-semibold opacity-60 uppercase tracking-wider">
+                    <span class="flex items-center gap-2"><i data-lucide="check-square" class="w-4 h-4 text-emerald-400"></i> Tasks</span>
+                    <span id="todo-count" class="text-[10px] clock-font opacity-80">0 left</span>
+                </div>
+                <form id="todo-form" class="flex gap-2">
+                    <input type="text" id="todo-input" placeholder="New task..." class="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-white/30 transition-all placeholder:text-white/30">
+                    <button type="submit" class="px-3 py-1.5 rounded-xl glass-btn text-xs hover:bg-white/15"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                </form>
+                <div id="todo-list" class="todo-scroll flex-1 overflow-y-auto space-y-1.5 pr-1"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-xl hidden justify-center items-center z-50 p-4 opacity-0 transition-all duration-300">
+        <div class="modern-card rounded-[2rem] max-w-sm w-full p-6 shadow-2xl space-y-5">
+            <div class="flex justify-between items-center border-b border-white/10 pb-4">
+                <h3 class="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                    <i data-lucide="settings" class="w-4 h-4 opacity-70"></i> Live Wallpaper Controls
+                </h3>
+                <button id="close-settings-modal" class="p-1 rounded-full hover:bg-white/10 transition-colors opacity-70">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div class="space-y-4 text-xs font-medium">
+                <div>
+                    <label class="opacity-80 block mb-2">Wallpaper Theme Mode</label>
+                    <select id="wallpaper-mode-select" class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none">
+                        <option value="particles" class="bg-zinc-900">Floating Particles (Interactive)</option>
+                        <option value="waves" class="bg-zinc-900">Smooth Fluid Waves</option>
+                        <option value="matrix" class="bg-zinc-900">Digital Matrix Grid</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="opacity-80 block mb-2">Clock Style</label>
+                    <select id="clock-style-select" class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none">
+                        <option value="glass" class="bg-zinc-900">Glass</option>
+                        <option value="neon" class="bg-zinc-900">Neon</option>
+                        <option value="minimal" class="bg-zinc-900">Minimal</option>
+                        <option value="flip" class="bg-zinc-900">Flip</option>
+                    </select>
+                </div>
+
+                <div class="pt-3 border-t border-white/10 space-y-2">
+                    <label class="opacity-80 block">Custom Wallpaper</label>
+                    <input id="custom-wallpaper-upload" type="file" accept="image/*" class="mini-control">
+                    <input id="custom-wallpaper-url" type="url" placeholder="https://example.com/wallpaper.jpg" class="mini-control" />
+                    <div class="flex gap-2">
+                        <button id="apply-wallpaper-url-btn" class="flex-1 rounded-xl px-3 py-2 bg-white text-black text-[10px] font-semibold">Apply</button>
+                        <button id="remove-custom-wallpaper-btn" class="flex-1 rounded-xl px-3 py-2 glass-btn text-[10px] font-semibold">Remove</button>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-white/10 space-y-2">
+                    <label class="opacity-80 block">Background Music</label>
+                    <input id="background-music-upload" type="file" accept="audio/*" class="mini-control">
+                    <input id="background-music-url" type="url" placeholder="https://example.com/song.mp3" class="mini-control" />
+                    <div class="flex gap-2">
+                        <button id="music-toggle-btn" class="flex-1 rounded-xl px-3 py-2 bg-white text-black text-[10px] font-semibold">Play</button>
+                        <button id="music-stop-btn" class="flex-1 rounded-xl px-3 py-2 glass-btn text-[10px] font-semibold">Stop</button>
+                    </div>
+                    <audio id="background-music" loop preload="auto"></audio>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('live-wallpaper-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let wallpaperMode = localStorage.getItem('wallpaper_mode') || 'particles';
+        let particles = [];
+        let waveAngle = 0;
+
+        function resizeCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function initParticles() {
+            particles = [];
+            const count = Math.floor((width * height) / 18000);
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 2 + 0.8,
+                    vx: (Math.random() - 0.5) * 0.4,
+                    vy: (Math.random() - 0.5) * 0.4,
+                    alpha: Math.random() * 0.5 + 0.2
+                });
+            }
+        }
+        initParticles();
+
+        function renderWallpaper() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = '#070709';
+            ctx.fillRect(0, 0, width, height);
+
+            if (wallpaperMode === 'particles') {
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    if (p.x < 0) p.x = width;
+                    if (p.x > width) p.x = 0;
+                    if (p.y < 0) p.y = height;
+                    if (p.y > height) p.y = 0;
+
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(99, 102, 241, ${p.alpha})`;
+                    ctx.fill();
+                });
+            } else if (wallpaperMode === 'waves') {
+                waveAngle += 0.015;
+                ctx.beginPath();
+                ctx.moveTo(0, height * 0.7);
+                for (let x = 0; x < width; x += 25) {
+                    let y = height * 0.7 + Math.sin(x * 0.003 + waveAngle) * 50 + Math.cos(x * 0.005 + waveAngle * 0.5) * 30;
+                    ctx.lineTo(x, y);
+                }
+                ctx.lineTo(width, height);
+                ctx.lineTo(0, height);
+                ctx.fillStyle = 'rgba(99, 102, 241, 0.05)';
+                ctx.fill();
+            } else if (wallpaperMode === 'matrix') {
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+                ctx.font = '12px monospace';
+                particles.forEach((p) => {
+                    p.y += 1.5;
+                    if (p.y > height) p.y = 0;
+                    ctx.fillText(Math.floor(Math.random() * 2), p.x, p.y);
+                });
+            }
+            requestAnimationFrame(renderWallpaper);
+        }
+        renderWallpaper();
+
+        const wpSelect = document.getElementById('wallpaper-mode-select');
+        if (wpSelect) {
+            wpSelect.value = wallpaperMode;
+            wpSelect.addEventListener('change', (e) => {
+                wallpaperMode = e.target.value;
+                localStorage.setItem('wallpaper_mode', wallpaperMode);
+                initParticles();
+            });
+        }
+
+        const clockStyleSelect = document.getElementById('clock-style-select');
+        let clockStyle = localStorage.getItem('dam_clock_style') || 'glass';
+
+        function applyClockStyle(style) {
+            const valid = ['glass', 'neon', 'minimal', 'flip'];
+            const chosen = valid.includes(style) ? style : 'glass';
+            document.body.classList.remove(...valid.map(s => `clock-style-${s}`));
+            document.body.classList.add(`clock-style-${chosen}`);
+            localStorage.setItem('dam_clock_style', chosen);
+            if (clockStyleSelect) clockStyleSelect.value = chosen;
+        }
+
+        if (clockStyleSelect) {
+            clockStyleSelect.value = clockStyle;
+            clockStyleSelect.addEventListener('change', (e) => {
+                applyClockStyle(e.target.value);
+            });
+        }
+        applyClockStyle(clockStyle);
+
+        const customWallpaperUpload = document.getElementById('custom-wallpaper-upload');
+        const customWallpaperUrlInput = document.getElementById('custom-wallpaper-url');
+        const applyWallpaperUrlBtn = document.getElementById('apply-wallpaper-url-btn');
+        const removeCustomWallpaperBtn = document.getElementById('remove-custom-wallpaper-btn');
+        const backgroundMusic = document.getElementById('background-music');
+        const backgroundMusicUpload = document.getElementById('background-music-upload');
+        const backgroundMusicUrlInput = document.getElementById('background-music-url');
+        const musicToggleBtn = document.getElementById('music-toggle-btn');
+        const musicStopBtn = document.getElementById('music-stop-btn');
+
+        let customWallpaperData = localStorage.getItem('dam_clock_custom_wallpaper') || '';
+        let customWallpaperUrl = localStorage.getItem('dam_clock_custom_wallpaper_url') || '';
+        let backgroundMusicData = localStorage.getItem('dam_clock_background_music') || '';
+        let backgroundMusicUrl = localStorage.getItem('dam_clock_background_music_url') || '';
+
+        function applyCustomWallpaper(source) {
+            if (!source) {
+                document.body.style.backgroundImage = '';
+                document.body.style.backgroundSize = '';
+                document.body.style.backgroundPosition = '';
+                document.body.style.backgroundRepeat = '';
+                document.body.style.backgroundAttachment = '';
+                return;
+            }
+
+            document.body.style.backgroundImage = `url("${source}")`;
+            document.body.style.backgroundSize = 'cover';
+            document.body.style.backgroundPosition = 'center';
+            document.body.style.backgroundRepeat = 'no-repeat';
+            document.body.style.backgroundAttachment = 'fixed';
+        }
+
+        if (customWallpaperUrlInput) {
+            customWallpaperUrlInput.value = customWallpaperUrl;
+            customWallpaperUrlInput.addEventListener('input', (e) => {
+                customWallpaperUrl = e.target.value.trim();
+                localStorage.setItem('dam_clock_custom_wallpaper_url', customWallpaperUrl);
+            });
+        }
+
+        if (applyWallpaperUrlBtn) {
+            applyWallpaperUrlBtn.addEventListener('click', () => {
+                if (!customWallpaperUrl) return;
+                applyCustomWallpaper(customWallpaperUrl);
+                customWallpaperData = customWallpaperUrl;
+                localStorage.setItem('dam_clock_custom_wallpaper', customWallpaperUrl);
+            });
+        }
+
+        if (removeCustomWallpaperBtn) {
+            removeCustomWallpaperBtn.addEventListener('click', () => {
+                customWallpaperData = '';
+                customWallpaperUrl = '';
+                localStorage.removeItem('dam_clock_custom_wallpaper');
+                localStorage.removeItem('dam_clock_custom_wallpaper_url');
+                if (customWallpaperUrlInput) customWallpaperUrlInput.value = '';
+                applyCustomWallpaper('');
+            });
+        }
+
+        if (customWallpaperUpload) {
+            customWallpaperUpload.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    customWallpaperData = String(reader.result);
+                    customWallpaperUrl = customWallpaperData;
+                    localStorage.setItem('dam_clock_custom_wallpaper', customWallpaperData);
+                    localStorage.setItem('dam_clock_custom_wallpaper_url', customWallpaperData);
+                    if (customWallpaperUrlInput) customWallpaperUrlInput.value = customWallpaperData;
+                    applyCustomWallpaper(customWallpaperData);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        if (customWallpaperData) {
+            applyCustomWallpaper(customWallpaperData);
+        }
+
+        function setMusicSource(source) {
+            if (!backgroundMusic || !source) return;
+            backgroundMusic.src = source;
+            backgroundMusic.load();
+        }
+
+        function toggleBackgroundMusic() {
+            if (!backgroundMusic) return;
+            if (!backgroundMusic.src) {
+                const musicSource = backgroundMusicData || backgroundMusicUrl || (backgroundMusicUrlInput ? backgroundMusicUrlInput.value.trim() : '');
+                if (!musicSource) return;
+                setMusicSource(musicSource);
+            }
+
+            if (backgroundMusic.paused) {
+                backgroundMusic.play().catch(() => {});
+                if (musicToggleBtn) musicToggleBtn.textContent = 'Pause';
+            } else {
+                backgroundMusic.pause();
+                if (musicToggleBtn) musicToggleBtn.textContent = 'Play';
+            }
+        }
+
+        if (musicToggleBtn) {
+            musicToggleBtn.addEventListener('click', toggleBackgroundMusic);
+        }
+
+        if (musicStopBtn) {
+            musicStopBtn.addEventListener('click', () => {
+                if (!backgroundMusic) return;
+                backgroundMusic.pause();
+                backgroundMusic.currentTime = 0;
+                if (musicToggleBtn) musicToggleBtn.textContent = 'Play';
+            });
+        }
+
+        if (backgroundMusicUrlInput) {
+            backgroundMusicUrlInput.value = backgroundMusicUrl;
+            backgroundMusicUrlInput.addEventListener('input', (e) => {
+                backgroundMusicUrl = e.target.value.trim();
+                localStorage.setItem('dam_clock_background_music_url', backgroundMusicUrl);
+            });
+        }
+
+        if (backgroundMusicUpload) {
+            backgroundMusicUpload.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    backgroundMusicData = String(reader.result);
+                    localStorage.setItem('dam_clock_background_music', backgroundMusicData);
+                    if (backgroundMusic) {
+                        setMusicSource(backgroundMusicData);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        if (backgroundMusicData) {
+            setMusicSource(backgroundMusicData);
+        } else if (backgroundMusicUrl) {
+            setMusicSource(backgroundMusicUrl);
+        }
+
+        function refreshIcons() {
+            if (window.lucide && typeof lucide.createIcons === 'function') {
+                lucide.createIcons();
+            }
+        }
+
+        function playStudyOverSound() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance('study time is over');
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        let pomoTime = 25 * 60;
+        let pomoTimer = null;
+        let isPomoRunning = false;
+        let currentMode = 'focus';
+
+        function setTimerMode(mode, minutes) {
+            clearInterval(pomoTimer);
+            isPomoRunning = false;
+            currentMode = mode;
+            pomoTime = minutes * 60;
+
+            const startBtn = document.getElementById('pomo-start-btn');
+            const studyStartBtn = document.getElementById('study-start-btn');
+            if (startBtn) startBtn.textContent = 'Start';
+            if (studyStartBtn) studyStartBtn.textContent = 'Start';
+
+            document.querySelectorAll('[id^="mode-"]').forEach(btn => {
+                btn.className = 'flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all opacity-60 hover:opacity-100';
+            });
+            const activeBtn = document.getElementById(`mode-${mode}`);
+            if (activeBtn) activeBtn.className = 'flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all timer-btn-active';
+
+            const statusEl = document.getElementById('pomo-status');
+            const studyStatusEl = document.getElementById('study-mode-status');
+            if (statusEl) statusEl.textContent = mode.toUpperCase();
+            if (studyStatusEl) studyStatusEl.textContent = mode.toUpperCase();
+            updateTimerDisplay();
+        }
+
+        function updateTimerDisplay() {
+            const m = String(Math.floor(pomoTime / 60)).padStart(2, '0');
+            const s = String(pomoTime % 60).padStart(2, '0');
+            const value = `${m}:${s}`;
+
+            const pomoDisplay = document.getElementById('pomo-display');
+            const studyDisplay = document.getElementById('study-timer-display');
+            if (pomoDisplay) pomoDisplay.textContent = value;
+            if (studyDisplay) studyDisplay.textContent = value;
+        }
+
+        function togglePomo() {
+            const startBtn = document.getElementById('pomo-start-btn');
+            const studyStartBtn = document.getElementById('study-start-btn');
+            const status = document.getElementById('pomo-status');
+            const studyStatus = document.getElementById('study-mode-status');
+
+            if (isPomoRunning) {
+                clearInterval(pomoTimer);
+                isPomoRunning = false;
+                if (startBtn) startBtn.textContent = 'Start';
+                if (studyStartBtn) studyStartBtn.textContent = 'Start';
+                if (status) status.textContent = 'PAUSED';
+                if (studyStatus) studyStatus.textContent = 'PAUSED';
+            } else {
+                isPomoRunning = true;
+                if (startBtn) startBtn.textContent = 'Pause';
+                if (studyStartBtn) studyStartBtn.textContent = 'Pause';
+                if (status) status.textContent = 'RUNNING';
+                if (studyStatus) studyStatus.textContent = 'RUNNING';
+
+                pomoTimer = setInterval(() => {
+                    if (pomoTime > 0) {
+                        pomoTime--;
+                        updateTimerDisplay();
+                    } else {
+                        clearInterval(pomoTimer);
+                        isPomoRunning = false;
+                        if (startBtn) startBtn.textContent = 'Start';
+                        if (studyStartBtn) studyStartBtn.textContent = 'Start';
+                        if (status) status.textContent = 'DONE';
+                        if (studyStatus) studyStatus.textContent = 'DONE';
+                        playStudyOverSound();
+                    }
+                }, 1000);
+            }
+        }
+
+        document.getElementById('pomo-start-btn').addEventListener('click', togglePomo);
+        document.getElementById('study-start-btn').addEventListener('click', togglePomo);
+        document.getElementById('pomo-reset-btn').addEventListener('click', () => {
+            const defaultMins = currentMode === 'focus' ? 25 : (currentMode === 'study' ? 60 : 5);
+            setTimerMode(currentMode, defaultMins);
+        });
+        document.getElementById('study-reset-btn').addEventListener('click', () => {
+            const defaultMins = currentMode === 'focus' ? 25 : (currentMode === 'study' ? 60 : 5);
+            setTimerMode(currentMode, defaultMins);
+        });
+
+        function updateClock() {
+            const now = new Date();
+            const hours = document.getElementById('hours-display');
+            const minutes = document.getElementById('minutes-display');
+            const seconds = document.getElementById('seconds-display');
+            const date = document.getElementById('date-display');
+            const ampm = document.getElementById('ampm-display');
+
+            const h = now.getHours();
+            const m = now.getMinutes();
+            const s = now.getSeconds();
+
+            if (hours) hours.textContent = String(h).padStart(2, '0');
+            if (minutes) minutes.textContent = String(m).padStart(2, '0');
+            if (seconds) seconds.textContent = String(s).padStart(2, '0');
+            if (date) date.textContent = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+            if (ampm) {
+                ampm.textContent = h >= 12 ? 'PM' : 'AM';
+            }
+        }
+
+        function toggleStudyMode(forceState) {
+            const shouldStudy = typeof forceState === 'boolean' ? forceState : !document.body.classList.contains('study-mode-active');
+            document.body.classList.toggle('study-mode-active', shouldStudy);
+            const studyBtn = document.getElementById('study-mode-btn');
+            if (studyBtn) {
+                studyBtn.classList.toggle('ring-1', shouldStudy);
+                studyBtn.classList.toggle('ring-white/20', shouldStudy);
+            }
+        }
+
+        const studyModeBtn = document.getElementById('study-mode-btn');
+        const exitStudyModeBtn = document.getElementById('exit-study-mode-btn');
+        if (studyModeBtn) studyModeBtn.addEventListener('click', () => toggleStudyMode());
+        if (exitStudyModeBtn) exitStudyModeBtn.addEventListener('click', () => toggleStudyMode(false));
+
+        function toggleZen() {
+            document.querySelectorAll('#main-header, #widgets-container, #date-display').forEach(el => {
+                if (el) el.classList.toggle('zen-hidden');
+            });
+        }
+
+        document.getElementById('zen-btn').addEventListener('click', toggleZen);
+
+        const settingsModal = document.getElementById('settings-modal');
+        document.getElementById('settings-btn').addEventListener('click', () => {
+            settingsModal.classList.remove('hidden');
+            setTimeout(() => settingsModal.classList.remove('opacity-0'), 10);
+        });
+        document.getElementById('close-settings-modal').addEventListener('click', () => {
+            settingsModal.classList.add('opacity-0');
+            setTimeout(() => settingsModal.classList.add('hidden'), 300);
+        });
+
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        if (fullscreenBtn) {
+            fullscreenBtn.addEventListener('click', () => {
+                if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+                else if (document.exitFullscreen) document.exitFullscreen();
+            });
+        }
+
+        let todos = JSON.parse(localStorage.getItem('todos')) || [{ id: 1, text: 'Review study mode goals', done: false }];
+        function renderTodos() {
+            const list = document.getElementById('todo-list');
+            const countEl = document.getElementById('todo-count');
+            if (!list) return;
+
+            list.innerHTML = '';
+            todos.forEach(t => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between bg-white/5 px-3 py-1.5 rounded-xl text-xs border border-white/5';
+                item.innerHTML = `
+                    <div class="flex items-center gap-2 cursor-pointer flex-1" onclick="toggleTodo(${t.id})">
+                        <i data-lucide="${t.done ? 'check-circle-2' : 'circle'}" class="w-3.5 h-3.5 ${t.done ? 'text-emerald-400 opacity-50' : 'opacity-70'}"></i>
+                        <span class="${t.done ? 'line-through opacity-40' : 'opacity-90'}">${t.text}</span>
+                    </div>
+                    <button onclick="deleteTodo(${t.id})" class="opacity-40 hover:opacity-100"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                `;
+                list.appendChild(item);
+            });
+
+            if (countEl) countEl.textContent = `${todos.filter(t => !t.done).length} left`;
+            localStorage.setItem('todos', JSON.stringify(todos));
+            refreshIcons();
+        }
+
+        const todoForm = document.getElementById('todo-form');
+        if (todoForm) {
+            todoForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = document.getElementById('todo-input');
+                if (input && input.value.trim()) {
+                    todos.push({ id: Date.now(), text: input.value.trim(), done: false });
+                    input.value = '';
+                    renderTodos();
+                }
+            });
+        }
+
+        window.toggleTodo = (id) => { todos = todos.map(t => t.id === id ? { ...t, done: !t.done } : t); renderTodos(); };
+        window.deleteTodo = (id) => { todos = todos.filter(t => t.id !== id); renderTodos(); };
+
+        window.addEventListener('keydown', (e) => {
+            if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+            if (e.code === 'Space') { e.preventDefault(); togglePomo(); }
+            if (e.key.toLowerCase() === 'z') toggleZen();
+            if (e.key.toLowerCase() === 'd') toggleStudyMode();
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            updateClock();
+            setTimerMode('focus', 25);
+            refreshIcons();
+            renderTodos();
+            setInterval(updateClock, 1000);
+        });
+    </script>
+</body>
+</html>
